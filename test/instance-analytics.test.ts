@@ -61,6 +61,11 @@ describe("instance analytics", () => {
     expect(result.daily).toEqual([
       { timestamp: "2026-07-24T00:00:00.000Z", value: 200 },
     ]);
+    expect(result).toMatchObject({
+      cycleStart: "2026-07-01T00:00:00.000Z",
+      forecastDailyUsage: 0,
+      forecastHourlyUsage: 120 * (6 / 21),
+    });
     const request = JSON.parse(
       String(fetchMock.mock.calls[0][1]?.body),
     ) as {
@@ -68,6 +73,16 @@ describe("instance analytics", () => {
       variables: Record<string, string>;
     };
     expect(request.query).toContain("databaseId: $instanceId");
+    expect(request.query).toContain("dailyOlder:");
     expect(request.variables.instanceId).toBe("database-id");
+    expect(request.variables.hourlyStart).toBe(
+      "2026-07-22T12:30:00.000Z",
+    );
+    expect(request.variables.trendStart).toBe(
+      "2026-06-25T00:00:00.000Z",
+    );
+    expect(request.variables.trendRecent).toBe(
+      "2026-07-24T12:30:00.000Z",
+    );
   });
 });

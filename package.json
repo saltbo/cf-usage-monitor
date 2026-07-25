@@ -4,20 +4,42 @@
   "private": true,
   "type": "module",
   "license": "Apache-2.0",
+  "packageManager": "npm@12.0.1",
+  "engines": {
+    "node": ">=24.15.0"
+  },
   "scripts": {
-    "dev": "wrangler dev --test-scheduled",
+    "dev": "CLOUDFLARE_ENV=local vite",
+    "build": "vite build",
+    "preview": "CLOUDFLARE_ENV=local vite build && vite preview",
     "types": "wrangler types",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "deploy:dry": "wrangler deploy --dry-run",
-    "check": "npm run types && npm run typecheck && npm test && npm run deploy:dry",
-    "deploy": "wrangler deploy"
+    "typecheck": "tsc -b",
+    "test": "vitest run --config vitest.worker.config.ts && vitest run --config vitest.web.config.ts",
+    "test:worker": "vitest run --config vitest.worker.config.ts",
+    "test:web": "vitest run --config vitest.web.config.ts",
+    "deploy:dry": "npm run build && wrangler deploy --dry-run",
+    "check": "npm run types && npm run typecheck && npm test && npm run build",
+    "deploy": "npm run build && wrangler deploy"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.18.6",
+    "@cloudflare/vite-plugin": "^1.47.0",
+    "@cloudflare/vitest-pool-workers": "^0.18.8",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^26.1.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "jsdom": "^29.1.1",
     "typescript": "^7.0.2",
+    "vite": "^8.1.5",
     "vitest": "^4.1.10",
-    "wrangler": "^4.112.0"
+    "wrangler": "^4.114.0"
+  },
+  "dependencies": {
+    "hono": "^4.12.30",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router": "^8.3.0"
   }
 }

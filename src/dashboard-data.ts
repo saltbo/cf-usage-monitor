@@ -13,50 +13,12 @@ import type {
   QuotaEvaluation,
   RiskLevel,
 } from "./detection";
-
-export interface DashboardMetric extends QuotaEvaluation {
-  label: string;
-  unit: string;
-  period: "billing_cycle" | "utc_day";
-  alertPolicy: AlertPolicy;
-  alertStatus: "normal" | "pending" | "active" | "recovered" | "track_only";
-  incident: {
-    active: boolean;
-    startedAt: string;
-    notificationCount: number;
-    recoveryStreak: number;
-    recoverySamples: number;
-    worstProjectedRatio: number;
-  } | null;
-  hourly: Array<{ timestamp: string; value: number }>;
-  daily: Array<{ timestamp: string; value: number }>;
-}
-
-export interface DashboardProduct {
-  name: ProductName;
-  label: string;
-  description: string;
-  risk: RiskLevel;
-  topMetric: MetricName;
-  metrics: DashboardMetric[];
-}
-
-export interface DashboardData {
-  schemaVersion: 2;
-  generatedAt: string;
-  accountName: string;
-  status: "healthy" | "warning" | "critical" | "degraded";
-  lastUpdated: string;
-  source: string;
-  cycle: UsageSnapshot["cycle"];
-  summary: {
-    critical: number;
-    warning: number;
-    products: number;
-  };
-  failures: UsageSnapshot["failures"];
-  products: DashboardProduct[];
-}
+import type {
+  DashboardData,
+  DashboardMetric,
+  DashboardProduct,
+  OverviewData,
+} from "./shared/dashboard";
 
 const RISK_SCORE: Record<RiskLevel, number> = {
   normal: 0,
@@ -118,6 +80,37 @@ export function buildDashboardData(
     },
     failures: snapshot.failures,
     products,
+  };
+}
+
+export function buildOverviewData(dashboard: DashboardData): OverviewData {
+  return {
+    schemaVersion: dashboard.schemaVersion,
+    generatedAt: dashboard.generatedAt,
+    accountName: dashboard.accountName,
+    status: dashboard.status,
+    lastUpdated: dashboard.lastUpdated,
+    source: dashboard.source,
+    cycle: dashboard.cycle,
+    summary: dashboard.summary,
+    failures: dashboard.failures,
+    products: dashboard.products.map((product) => ({
+      name: product.name,
+      label: product.label,
+      description: product.description,
+      risk: product.risk,
+      metrics: product.metrics.map((metric) => ({
+        metric: metric.metric,
+        label: metric.label,
+        unit: metric.unit,
+        risk: metric.risk,
+        used: metric.used,
+        quota: metric.quota,
+        usedRatio: metric.usedRatio,
+        forecastProjectedRatio: metric.forecastProjectedRatio,
+        alertStatus: metric.alertStatus,
+      })),
+    })),
   };
 }
 

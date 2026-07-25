@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildDashboardData } from "../src/dashboard-data";
+import {
+  buildDashboardData,
+  buildOverviewData,
+} from "../src/dashboard-data";
 import {
   detectQuotaRisks,
   type DetectionConfig,
@@ -33,9 +36,9 @@ describe("dashboard data", () => {
       quota: 50_000_000,
       risk: "critical",
       alertStatus: "pending",
-      forecastHourlyUsage: 900_000,
-      forecastHourlySamples: 1,
-      forecastDailySamples: 1,
+      forecastHourlyUsage: 900_000 * (6 / 21),
+      forecastHourlySamples: 6,
+      forecastDailySamples: 7,
     });
     expect(dashboard.products[0].metrics[0].contributors[0].name).toBe(
       "orders-db",
@@ -52,6 +55,20 @@ describe("dashboard data", () => {
         ?.metrics.find((metric) => metric.metric === "r2.storage_gb_month")
         ?.alertStatus,
     ).toBe("track_only");
+
+    const overview = buildOverviewData(dashboard);
+    const overviewMetric = overview.products[0].metrics[0];
+    expect(overviewMetric).toMatchObject({
+      metric: "d1.rows_written",
+      used: 30_000_000,
+      quota: 50_000_000,
+      risk: "critical",
+    });
+    expect(overviewMetric).not.toHaveProperty("contributors");
+    expect(overviewMetric).not.toHaveProperty("recentContributors");
+    expect(overviewMetric).not.toHaveProperty("hourly");
+    expect(overviewMetric).not.toHaveProperty("daily");
+    expect(overviewMetric).not.toHaveProperty("incident");
   });
 });
 

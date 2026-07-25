@@ -43,6 +43,8 @@ describe("latest dashboard", () => {
       accountId: "account",
       accountName: "primary",
       apiToken: "token",
+      includeContributors: false,
+      includeTrends: false,
       now: Date.parse("2026-07-24T12:35:00.000Z"),
       collect,
       loadCycle: vi.fn().mockResolvedValue({
@@ -60,7 +62,9 @@ describe("latest dashboard", () => {
       },
       "2026-07-24T12:30:00.000Z",
       {},
-      true,
+      false,
+      undefined,
+      false,
     );
     expect(dashboard.source).toContain("live estimate");
   });

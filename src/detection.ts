@@ -5,14 +5,15 @@ import {
   type MetricName,
   type UsageSnapshot,
 } from "./metrics";
+import {
+  calculateForecastRates,
+  sumTransitionalDailyForecast,
+} from "./forecast";
 
 export const SAMPLE_INTERVAL_MINUTES = 10;
 const HISTORY_LIMIT = 24 * 6;
 const HOUR_MS = 60 * 60 * 1_000;
 const DAY_MS = 24 * HOUR_MS;
-const FORECAST_HOURLY_BUCKETS = 6;
-const FORECAST_DAILY_BUCKETS = 7;
-const FORECAST_MIN_DAILY_BUCKETS = 3;
 
 export type RiskLevel = "normal" | "warning" | "critical" | "exceeded";
 export type AlertPolicy = "strict" | "track_only";
@@ -113,11 +114,24 @@ export function detectQuotaRisks(
   };
   const alerts: QuotaAlert[] = [];
   const recoveries: QuotaRecovery[] = [];
-  const evaluations = METRIC_NAMES.map((metric) =>
-    evaluateMetric(metric, snapshot),
+  const failedCollectors = new Set(
+    snapshot.failures.map((failure) => failure.collector),
   );
+  const evaluations = METRIC_NAMES.map((metric) => {
+    const evaluation = evaluateMetric(metric, snapshot);
+    if (!failedCollectors.has(collectorForMetric(metric))) {
+      return evaluation;
+    }
+    return (
+      previous.latest?.find((candidate) => candidate.metric === metric) ??
+      evaluation
+    );
+  });
 
   for (const evaluation of evaluations) {
+    if (failedCollectors.has(collectorForMetric(evaluation.metric))) {
+      continue;
+    }
     const metricState = state.metrics[evaluation.metric] ?? {
       samples: [],
       riskStreak: 0,
@@ -233,6 +247,13 @@ export function detectQuotaRisks(
   return { state, alerts, recoveries };
 }
 
+function collectorForMetric(metric: MetricName): string {
+  if (metric === "r2.storage_gb_month") {
+    return "r2_storage";
+  }
+  return METRICS[metric].product;
+}
+
 export function evaluateMetric(
   metric: MetricName,
   snapshot: UsageSnapshot,
@@ -340,27 +361,19 @@ function buildStableForecast(
   const measuredAtMs = Date.parse(snapshot.measuredAt);
   const hourlyPoints =
     snapshot.hourlySeries.find((series) => series.name === metric)?.points ?? [];
-  const completeHours = hourlyPoints
-    .filter(
-      (point) => Date.parse(point.timestamp) + HOUR_MS <= measuredAtMs,
-    )
-    .slice(-FORECAST_HOURLY_BUCKETS);
   const recentHourlyUsage =
     snapshot.recentValues.find((value) => value.name === metric)?.value ?? 0;
-  const forecastHourlyUsage =
-    completeHours.length > 0
-      ? weightedAverage(completeHours.map((point) => point.value))
-      : recentHourlyUsage;
-
   const dailyPoints =
     snapshot.dailySeries.find((series) => series.name === metric)?.points ?? [];
-  const completeDays = dailyPoints
-    .filter((point) => Date.parse(point.timestamp) + DAY_MS <= measuredAtMs)
-    .slice(-FORECAST_DAILY_BUCKETS);
-  const forecastDailyUsage =
-    completeDays.length >= FORECAST_MIN_DAILY_BUCKETS
-      ? average(completeDays.map((point) => point.value))
-      : forecastHourlyUsage * 24;
+  const rates = calculateForecastRates({
+    dailyPoints,
+    hourlyPoints,
+    measuredAt: snapshot.measuredAt,
+    periodStart: period.start,
+    recentHourlyUsage,
+  });
+  const forecastHourlyUsage = rates.hourlyUsage;
+  const forecastDailyUsage = rates.dailyUsage;
 
   const periodEndMs = Date.parse(period.end);
   const nextUtcDayMs =
@@ -374,18 +387,23 @@ function buildStableForecast(
     0,
     (periodEndMs - currentDayEndMs) / DAY_MS,
   );
+  const futureDailyUsage = sumTransitionalDailyForecast(
+    forecastHourlyUsage,
+    forecastDailyUsage,
+    Math.floor(remainingFullDays),
+  );
   const forecastProjectedUsage =
     used +
     (usesDailyPeakAverage(metric)
-      ? forecastDailyUsage * remainingFullDays
+      ? futureDailyUsage
       : forecastHourlyUsage * remainingCurrentDayHours +
-        forecastDailyUsage * remainingFullDays);
+        futureDailyUsage);
 
   return {
     forecastHourlyUsage,
-    forecastHourlySamples: completeHours.length,
+    forecastHourlySamples: rates.hourlySamples,
     forecastDailyUsage,
-    forecastDailySamples: completeDays.length,
+    forecastDailySamples: rates.dailySamples,
     forecastProjectedUsage,
     forecastProjectedRatio: forecastProjectedUsage / METRICS[metric].quota,
   };
@@ -404,19 +422,6 @@ function usesDailyPeakAverage(metric: MetricName): boolean {
     "usageModel" in definition &&
     definition.usageModel === "daily_peak_average_30d"
   );
-}
-
-function weightedAverage(values: number[]): number {
-  const weightedTotal = values.reduce(
-    (total, value, index) => total + value * (index + 1),
-    0,
-  );
-  const weightTotal = values.reduce((total, _, index) => total + index + 1, 0);
-  return weightedTotal / weightTotal;
-}
-
-function average(values: number[]): number {
-  return values.reduce((total, value) => total + value, 0) / values.length;
 }
 
 function utcDay(value: string): { start: string; end: string } {

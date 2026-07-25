@@ -2,10 +2,14 @@ import {
   METRIC_NAMES,
   type MetricContributor,
   type MetricName,
+  type ProductName,
   type UsageSnapshot,
   type UsageSeries,
   type UsageValue,
 } from "./metrics";
+import { calculateForecastRates } from "./forecast";
+import type { InstanceUsageTrends } from "./shared/dashboard";
+import type { ResourceNames } from "./server/resource-catalog";
 
 const GRAPHQL_ENDPOINT = "https://api.cloudflare.com/client/v4/graphql";
 
@@ -24,15 +28,12 @@ interface CollectorResult {
 
 interface Collector {
   name: string;
-  query: (includeTrends: boolean) => string;
+  product: ProductName;
+  query: (includeTrends: boolean, includeContributors: boolean) => string;
   extract: (
     account: Record<string, unknown>,
     names: ResourceNames,
   ) => CollectorResult;
-}
-
-interface ResourceNames {
-  d1: Record<string, string>;
 }
 
 interface InstanceMetricDefinition {
@@ -49,6 +50,11 @@ interface InstanceMetricDefinition {
 const BYTES_PER_GB = 1_000_000_000;
 const DAYS_PER_GB_MONTH = 30;
 const HOURS_PER_GB_MONTH = DAYS_PER_GB_MONTH * 24;
+const HOUR_MS = 60 * 60 * 1_000;
+const DAY_MS = 24 * HOUR_MS;
+const HOURLY_TREND_LOOKBACK_MS = 2 * DAY_MS;
+const DAILY_TREND_LOOKBACK_MS = 6 * DAY_MS;
+const DAILY_TREND_CHUNK_MS = 31 * DAY_MS;
 
 const R2_CLASS_A = new Set([
   "ListBuckets",
@@ -81,9 +87,10 @@ const R2_CLASS_B = new Set([
 const collectors: Collector[] = [
   {
     name: "workers",
-    query: (includeTrends) => usageQuery(
+    product: "workers",
+    query: (includeTrends, includeContributors) => usageQuery(
       "workersInvocationsAdaptive",
-      "dimensions { scriptName } sum { requests cpuTimeUs }",
+      `${includeContributors ? "dimensions { scriptName } " : ""}sum { requests cpuTimeUs }`,
       includeTrends,
     ),
     extract: (account) =>
@@ -105,9 +112,10 @@ const collectors: Collector[] = [
   },
   {
     name: "d1",
-    query: (includeTrends) => usageQuery(
+    product: "d1",
+    query: (includeTrends, includeContributors) => usageQuery(
       "d1AnalyticsAdaptiveGroups",
-      "dimensions { databaseId } sum { rowsRead rowsWritten }",
+      `${includeContributors ? "dimensions { databaseId } " : ""}sum { rowsRead rowsWritten }`,
       includeTrends,
     ),
     extract: (account, names) =>
@@ -117,25 +125,26 @@ const collectors: Collector[] = [
           "d1.rows_read",
           ["sum", "rowsRead"],
           ["dimensions", "databaseId"],
-          names.d1,
+          names.d1 ?? {},
         ),
         metricFromRows(
           rows,
           "d1.rows_written",
           ["sum", "rowsWritten"],
           ["dimensions", "databaseId"],
-          names.d1,
+          names.d1 ?? {},
         ),
       ]),
   },
   {
     name: "kv",
-    query: (includeTrends) => usageQuery(
+    product: "kv",
+    query: (includeTrends, includeContributors) => usageQuery(
       "kvOperationsAdaptiveGroups",
-      "dimensions { namespaceId actionType } sum { requests }",
+      `dimensions { ${includeContributors ? "namespaceId " : ""}actionType } sum { requests }`,
       includeTrends,
     ),
-    extract: (account) =>
+    extract: (account, names) =>
       extractDual(account, (rows) => {
         const definitions = [
           ["kv.reads", "read"],
@@ -153,15 +162,17 @@ const collectors: Collector[] = [
             metric,
             ["sum", "requests"],
             ["dimensions", "namespaceId"],
+            names.kv ?? {},
           ),
         );
       }),
   },
   {
     name: "r2",
-    query: (includeTrends) => usageQuery(
+    product: "r2",
+    query: (includeTrends, includeContributors) => usageQuery(
       "r2OperationsAdaptiveGroups",
-      "dimensions { bucketName actionType } sum { requests }",
+      `dimensions { ${includeContributors ? "bucketName " : ""}actionType } sum { requests }`,
       includeTrends,
     ),
     extract: (account) =>
@@ -172,48 +183,54 @@ const collectors: Collector[] = [
   },
   {
     name: "r2_storage",
+    product: "r2",
     query: r2StorageQuery,
     extract: (account) => extractR2Storage(account),
   },
   {
     name: "durable_objects",
-    query: (includeTrends) => usageQuery(
+    product: "durable_objects",
+    query: (includeTrends, includeContributors) => usageQuery(
       "durableObjectsInvocationsAdaptiveGroups",
-      "dimensions { namespaceId } sum { requests }",
+      `${includeContributors ? "dimensions { namespaceId } " : ""}sum { requests }`,
       includeTrends,
     ),
-    extract: (account) =>
+    extract: (account, names) =>
       extractDual(account, (rows) => [
         metricFromRows(
           rows,
           "durable_objects.requests",
           ["sum", "requests"],
           ["dimensions", "namespaceId"],
+          names.durable_objects ?? {},
         ),
       ]),
   },
   {
     name: "queues",
-    query: (includeTrends) => usageQuery(
+    product: "queues",
+    query: (includeTrends, includeContributors) => usageQuery(
       "queueMessageOperationsAdaptiveGroups",
-      "dimensions { queueId } sum { billableOperations }",
+      `${includeContributors ? "dimensions { queueId } " : ""}sum { billableOperations }`,
       includeTrends,
     ),
-    extract: (account) =>
+    extract: (account, names) =>
       extractDual(account, (rows) => [
         metricFromRows(
           rows,
           "queues.operations",
           ["sum", "billableOperations"],
           ["dimensions", "queueId"],
+          names.queues ?? {},
         ),
       ]),
   },
   {
     name: "workers_ai",
-    query: (includeTrends) => usageQuery(
+    product: "workers_ai",
+    query: (includeTrends, includeContributors) => usageQuery(
       "aiInferenceAdaptiveGroups",
-      "dimensions { modelId } sum { totalNeurons }",
+      `${includeContributors ? "dimensions { modelId } " : ""}sum { totalNeurons }`,
       includeTrends,
     ),
     extract: (account) =>
@@ -228,18 +245,20 @@ const collectors: Collector[] = [
   },
   {
     name: "containers",
-    query: (includeTrends) => usageQuery(
+    product: "containers",
+    query: (includeTrends, includeContributors) => usageQuery(
       "containersUsageAdaptiveGroups",
-      "dimensions { applicationId } sum { cpuTimeSec }",
+      `${includeContributors ? "dimensions { applicationId } " : ""}sum { cpuTimeSec }`,
       includeTrends,
     ),
-    extract: (account) =>
+    extract: (account, names) =>
       extractDual(account, (rows) => [
         metricFromRows(
           rows,
           "containers.cpu_seconds",
           ["sum", "cpuTimeSec"],
           ["dimensions", "applicationId"],
+          names.containers ?? {},
         ),
       ]),
   },
@@ -346,14 +365,6 @@ const INSTANCE_METRICS = {
   },
 } as const satisfies Record<MetricName, InstanceMetricDefinition>;
 
-export interface InstanceUsageTrends {
-  metric: MetricName;
-  instanceId: string;
-  measuredAt: string;
-  hourly: UsageSeries["points"];
-  daily: UsageSeries["points"];
-}
-
 export async function collectInstanceUsage(
   accountId: string,
   apiToken: string,
@@ -364,6 +375,7 @@ export async function collectInstanceUsage(
 ): Promise<InstanceUsageTrends> {
   const definition = INSTANCE_METRICS[metric];
   const measuredAtMs = Date.parse(measuredAt);
+  const dailyWindow = dailyTrendWindow(cycleStart, measuredAt);
   const data = await queryAnalytics(
     apiToken,
     instanceUsageQuery(definition),
@@ -371,27 +383,51 @@ export async function collectInstanceUsage(
       accountId,
       instanceId,
       hourlyStart: new Date(
-        Math.max(Date.parse(cycleStart), measuredAtMs - 48 * 60 * 60 * 1_000),
+        measuredAtMs - HOURLY_TREND_LOOKBACK_MS,
       ).toISOString(),
-      trendStart: cycleStart,
+      ...dailyWindow,
       end: measuredAt,
     },
   );
   const account = getAccount(data);
+  const hourly = extractInstanceSeries(
+    getArray(account, "hourly"),
+    "datetimeHour",
+    definition,
+  );
+  const daily = extractInstanceSeries(
+    [
+      ...getOptionalArray(account, "dailyOlder"),
+      ...getArray(account, "daily"),
+    ],
+    "date",
+    definition,
+  );
+  const currentHourStart =
+    Math.floor(Date.parse(measuredAt) / (60 * 60 * 1_000)) *
+    60 *
+    60 *
+    1_000;
+  const recentHourlyUsage =
+    hourly.find(
+      (point) => Date.parse(point.timestamp) === currentHourStart,
+    )?.value ?? 0;
+  const rates = calculateForecastRates({
+    dailyPoints: daily,
+    hourlyPoints: hourly,
+    measuredAt,
+    periodStart: cycleStart,
+    recentHourlyUsage,
+  });
   return {
     metric,
     instanceId,
     measuredAt,
-    hourly: extractInstanceSeries(
-      getArray(account, "hourly"),
-      "datetimeHour",
-      definition,
-    ),
-    daily: extractInstanceSeries(
-      getArray(account, "daily"),
-      "date",
-      definition,
-    ),
+    cycleStart,
+    forecastHourlyUsage: rates.hourlyUsage,
+    forecastDailyUsage: rates.dailyUsage,
+    hourly,
+    daily,
   };
 }
 
@@ -400,30 +436,33 @@ export async function collectQuotaUsage(
   apiToken: string,
   cycle: { start: string; end: string },
   measuredAt: string,
-  d1DatabaseNames: Record<string, string> = {},
+  resourceNames: ResourceNames = {},
   includeTrends = false,
+  product?: ProductName,
+  includeContributors = true,
 ): Promise<UsageSnapshot> {
   const measuredAtMs = Date.parse(measuredAt);
-  const recentStart = new Date(measuredAtMs - 60 * 60 * 1_000).toISOString();
-  const hourlyEndMs = Math.floor(measuredAtMs / (60 * 60 * 1_000)) *
-    60 * 60 * 1_000;
+  const recentStart = new Date(measuredAtMs - HOUR_MS).toISOString();
+  const hourlyEndMs = Math.floor(measuredAtMs / HOUR_MS) * HOUR_MS;
   const variables = {
     accountId,
     cycleStart: cycle.start,
-    trendStart: cycle.start,
+    ...dailyTrendWindow(cycle.start, measuredAt),
     recentStart,
     storageStart: new Date(
       Math.max(Date.parse(cycle.start), measuredAtMs - 48 * 60 * 60 * 1_000),
     ).toISOString(),
     hourlyStart: new Date(
-      Math.max(Date.parse(cycle.start), hourlyEndMs - 48 * 60 * 60 * 1_000),
+      hourlyEndMs - HOURLY_TREND_LOOKBACK_MS,
     ).toISOString(),
     hourlyEnd: measuredAt,
     end: measuredAt,
   };
-  const names: ResourceNames = { d1: d1DatabaseNames };
+  const activeCollectors = product
+    ? collectors.filter((collector) => collector.product === product)
+    : collectors;
   const settled = await Promise.allSettled(
-    collectors.map(async (collector) => {
+    activeCollectors.map(async (collector) => {
       const collectorVariables =
         collector.name === "workers_ai"
           ? {
@@ -433,12 +472,12 @@ export async function collectQuotaUsage(
           : variables;
       const data = await queryAnalytics(
         apiToken,
-        collector.query(includeTrends),
+        collector.query(includeTrends, includeContributors),
         collectorVariables,
       );
       return {
         name: collector.name,
-        result: collector.extract(getAccount(data), names),
+        result: collector.extract(getAccount(data), resourceNames),
       };
     }),
   );
@@ -451,7 +490,7 @@ export async function collectQuotaUsage(
   settled.forEach((result, index) => {
     if (result.status === "rejected") {
       failures.push({
-        collector: collectors[index].name,
+        collector: activeCollectors[index].name,
         message:
           result.reason instanceof Error
             ? result.reason.message
@@ -499,6 +538,7 @@ function instanceUsageQuery(definition: InstanceMetricDefinition): string {
     $instanceId: string!
     $hourlyStart: Time!
     $trendStart: Time!
+    $trendRecent: Time!
     $end: Time!
   ) {
     viewer {
@@ -511,10 +551,18 @@ function instanceUsageQuery(definition: InstanceMetricDefinition): string {
             ${definition.resourceField}: $instanceId
           }
         ) { ${hourlySelection} }
-        daily: ${definition.dataset}(
+        dailyOlder: ${definition.dataset}(
           limit: 10000
           filter: {
             datetime_geq: $trendStart
+            datetime_lt: $trendRecent
+            ${definition.resourceField}: $instanceId
+          }
+        ) { ${dailySelection} }
+        daily: ${definition.dataset}(
+          limit: 10000
+          filter: {
+            datetime_geq: $trendRecent
             datetime_lt: $end
             ${definition.resourceField}: $instanceId
           }
@@ -577,6 +625,23 @@ function startOfUtcDay(value: string): string {
   ).toISOString();
 }
 
+function dailyTrendWindow(
+  cycleStart: string,
+  measuredAt: string,
+): {
+  trendStart: string;
+  trendRecent: string;
+} {
+  const start = Date.parse(cycleStart) - DAILY_TREND_LOOKBACK_MS;
+  const end = Date.parse(measuredAt);
+  return {
+    trendStart: new Date(start).toISOString(),
+    trendRecent: new Date(
+      Math.min(start + DAILY_TREND_CHUNK_MS, end),
+    ).toISOString(),
+  };
+}
+
 function usageQuery(
   dataset: string,
   selection: string,
@@ -585,6 +650,7 @@ function usageQuery(
   const trendVariables = includeTrends
     ? `
     $trendStart: Time!
+    $trendRecent: Time!
     $hourlyStart: Time!
     $hourlyEnd: Time!`
     : "";
@@ -594,9 +660,13 @@ function usageQuery(
           limit: 10000
           filter: { datetime_geq: $hourlyStart, datetime_lt: $hourlyEnd }
         ) { ${withTimeDimension(selection, "datetimeHour")} }
+        dailyOlder: ${dataset}(
+          limit: 10000
+          filter: { datetime_geq: $trendStart, datetime_lt: $trendRecent }
+        ) { ${withTimeDimension(selection, "date")} }
         daily: ${dataset}(
           limit: 10000
-          filter: { datetime_geq: $trendStart, datetime_lt: $end }
+          filter: { datetime_geq: $trendRecent, datetime_lt: $end }
         ) { ${withTimeDimension(selection, "date")} }`
     : "";
   return `query QuotaUsage(
@@ -622,10 +692,15 @@ function usageQuery(
   }`;
 }
 
-function r2StorageQuery(includeTrends: boolean): string {
+function r2StorageQuery(
+  includeTrends: boolean,
+  includeContributors: boolean,
+): string {
+  const bucketDimension = includeContributors ? " bucketName" : "";
   const trendVariables = includeTrends
     ? `
     $trendStart: Time!
+    $trendRecent: Time!
     $hourlyStart: Time!
     $hourlyEnd: Time!`
     : "";
@@ -635,14 +710,21 @@ function r2StorageQuery(includeTrends: boolean): string {
           limit: 10000
           filter: { datetime_geq: $hourlyStart, datetime_lt: $hourlyEnd }
         ) {
-          dimensions { datetimeHour bucketName }
+          dimensions { datetimeHour${bucketDimension} }
+          max { payloadSize metadataSize }
+        }
+        dailyOlder: r2StorageAdaptiveGroups(
+          limit: 10000
+          filter: { datetime_geq: $trendStart, datetime_lt: $trendRecent }
+        ) {
+          dimensions { date${bucketDimension} }
           max { payloadSize metadataSize }
         }
         daily: r2StorageAdaptiveGroups(
           limit: 10000
-          filter: { datetime_geq: $trendStart, datetime_lt: $end }
+          filter: { datetime_geq: $trendRecent, datetime_lt: $end }
         ) {
-          dimensions { date bucketName }
+          dimensions { date${bucketDimension} }
           max { payloadSize metadataSize }
         }`
     : "";
@@ -659,7 +741,7 @@ function r2StorageQuery(includeTrends: boolean): string {
           limit: 10000
           filter: { datetime_geq: $cycleStart, datetime_lt: $end }
         ) {
-          dimensions { date bucketName }
+          dimensions { date${bucketDimension} }
           max { payloadSize metadataSize }
         }
         recent: r2StorageAdaptiveGroups(
@@ -667,7 +749,7 @@ function r2StorageQuery(includeTrends: boolean): string {
           orderBy: [datetime_DESC]
           filter: { datetime_geq: $storageStart, datetime_lt: $end }
         ) {
-          dimensions { datetime bucketName }
+          dimensions { datetime${bucketDimension} }
           max { payloadSize metadataSize }
         }
         ${trends}
@@ -684,6 +766,7 @@ function r2StorageInstanceQuery(
     $instanceId: string!
     $hourlyStart: Time!
     $trendStart: Time!
+    $trendRecent: Time!
     $end: Time!
   ) {
     viewer {
@@ -699,10 +782,21 @@ function r2StorageInstanceQuery(
           dimensions { datetimeHour }
           max { payloadSize metadataSize }
         }
-        daily: ${definition.dataset}(
+        dailyOlder: ${definition.dataset}(
           limit: 10000
           filter: {
             datetime_geq: $trendStart
+            datetime_lt: $trendRecent
+            ${definition.resourceField}: $instanceId
+          }
+        ) {
+          dimensions { date }
+          max { payloadSize metadataSize }
+        }
+        daily: ${definition.dataset}(
+          limit: 10000
+          filter: {
+            datetime_geq: $trendRecent
             datetime_lt: $end
             ${definition.resourceField}: $instanceId
           }
@@ -725,7 +819,10 @@ function extractR2Storage(
   const cycleRows = getArray(account, "cycle");
   const recentRows = getArray(account, "recent");
   const hourlyRows = getOptionalArray(account, "hourly");
-  const dailyRows = getOptionalArray(account, "daily");
+  const dailyRows = [
+    ...getOptionalArray(account, "dailyOlder"),
+    ...getOptionalArray(account, "daily"),
+  ];
   return {
     cycle: [
       storageValueFromRows(
@@ -895,7 +992,14 @@ function extractDual(
     cycle: extract(getArray(account, "cycle")),
     recent: extract(getArray(account, "recent")),
     hourly: extractSeries(getOptionalArray(account, "hourly"), "datetimeHour", extract),
-    daily: extractSeries(getOptionalArray(account, "daily"), "date", extract),
+    daily: extractSeries(
+      [
+        ...getOptionalArray(account, "dailyOlder"),
+        ...getOptionalArray(account, "daily"),
+      ],
+      "date",
+      extract,
+    ),
   };
 }
 
@@ -980,7 +1084,14 @@ function getOptionalStringAtPath(
 ): string | null {
   let current: unknown = value;
   for (const segment of path) {
-    current = asRecord(current, path.join("."))[segment];
+    if (
+      typeof current !== "object" ||
+      current === null ||
+      Array.isArray(current)
+    ) {
+      return null;
+    }
+    current = (current as Record<string, unknown>)[segment];
   }
   return typeof current === "string" && current.length > 0 ? current : null;
 }

@@ -1,15 +1,14 @@
 import { collectQuotaUsage } from "./analytics";
 import { loadBillingCycle } from "./billing";
-import {
-  buildDashboardData,
-  type DashboardData,
-} from "./dashboard-data";
+import { buildDashboardData } from "./dashboard-data";
 import {
   detectQuotaRisks,
   type DetectionConfig,
   type MonitorState,
 } from "./detection";
 import type { UsageSnapshot } from "./metrics";
+import type { DashboardData } from "./shared/dashboard";
+import type { ResourceNames } from "./server/resource-catalog";
 
 type CollectUsage = typeof collectQuotaUsage;
 type LoadCycle = typeof loadBillingCycle;
@@ -20,7 +19,9 @@ interface LatestDashboardInput {
   accountId: string;
   accountName: string;
   apiToken: string;
-  d1DatabaseNames?: Record<string, string>;
+  resourceNames?: ResourceNames;
+  includeContributors?: boolean;
+  includeTrends?: boolean;
   now?: number;
   collect?: CollectUsage;
   loadCycle?: LoadCycle;
@@ -32,7 +33,9 @@ export async function loadLatestDashboard({
   accountId,
   accountName,
   apiToken,
-  d1DatabaseNames = {},
+  resourceNames = {},
+  includeContributors = true,
+  includeTrends = true,
   now = Date.now(),
   collect = collectQuotaUsage,
   loadCycle = loadBillingCycle,
@@ -48,8 +51,10 @@ export async function loadLatestDashboard({
     apiToken,
     cycle,
     measuredAt,
-    d1DatabaseNames,
-    true,
+    resourceNames,
+    includeTrends,
+    undefined,
+    includeContributors,
   );
   const detection = detectQuotaRisks(
     structuredClone(state),

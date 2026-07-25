@@ -31,6 +31,7 @@ describe("R2 storage analytics", () => {
       "2026-07-24T12:30:00.000Z",
       {},
       true,
+      "r2",
     );
 
     const storage = snapshot.values.find(
@@ -66,6 +67,7 @@ describe("R2 storage analytics", () => {
       .find((request) => request.query.includes("R2StorageUsage"))?.query;
     expect(query).toContain("r2StorageAdaptiveGroups");
     expect(query).toContain("max { payloadSize metadataSize }");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(snapshot.failures).toEqual([]);
   });
 

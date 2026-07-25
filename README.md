@@ -1,98 +1,124 @@
 # CF Usage Monitor
 
-一个独立的 Cloudflare Worker，每 10 分钟检查整个账户的包含额度、近期消耗速度和期末超额风险，并同时通过普通 HTTP Webhook 和邮件持续告警。
+一个运行在 Cloudflare Workers 上的账户用量仪表盘和额度风险告警服务。系统每 10 分钟采集 Billing 与 GraphQL Analytics 数据，通过邮件和 Webhook 持续告警，并提供可钻取到资源实例的 React 仪表盘。
 
-## 工作方式
+## 技术架构
 
-- Billing API 自动读取真实订阅计费周期。
-- GraphQL Analytics 查询当前周期账户总量和最近一小时用量。
-- 按最近一小时速度预测周期结束用量和预计额度耗尽时间。
-- GraphQL 资源维度用于定位具体 Worker、D1 数据库、KV Namespace、R2 Bucket、Queue 等贡献者。
-- KV 只保存告警生命周期、通知次数和页面趋势点，不是图表用量的唯一来源。
+- Vite + React + React Router：仪表盘、产品详情和实例钻取。
+- Hono：Worker HTTP 中间件、API 路由、认证和错误边界。
+- Cloudflare Workers Static Assets：发布 Vite 构建产物并支持 SPA fallback。
+- Cloudflare Cron Triggers：每 10 分钟运行账户采集和风险检测。
+- Workers KV：保存告警生命周期和最近可信监控状态。
+- Send Email binding + HTTP Webhook：投递风险、恢复和监控错误事件。
+- Vitest：Worker 运行时测试和 jsdom React 组件测试。
 
-页面打开时会直接查询 Cloudflare，不需要等待下一次 Cron 快照。
+```text
+src/client/        React 页面、组件、数据访问和样式
+src/server/        Hono 应用、API、配置和 scheduled 服务
+src/shared/        浏览器与 Worker 共用的 DTO
+src/*.ts           采集、额度检测、通知等领域模块
+worker/index.ts    Worker fetch/scheduled 组合入口
+test/              Worker 运行时与领域测试
+```
 
-## 页面
+Vite 开发服务器使用 Cloudflare 官方插件，因此本地开发、生产构建和 Workers 绑定使用同一套运行时配置。
+
+## 页面与 API
 
 仪表盘使用 HTTP Basic Auth，用户名固定为 `monitor`，密码来自 `DASHBOARD_PASSWORD`。
 
-- `/`：账户产品额度总览，按风险排序。
-- `/usage/:product`：产品详情、计费指标、累计额度预测图和实例贡献。
-- `/api/usage`：受认证保护的实时页面数据。
+- `/`：账户产品额度总览。
+- `/usage/:product`：产品与计费指标详情。
+- `/usage/:product/instances/:instance`：资源实例趋势。
+- `/api/overview`：列表页专用的实时轻量摘要，不返回趋势、实例贡献者或完整告警状态。
+- `/api/products/:product`：只查询指定产品的实时额度和趋势。
+- `/api/instance-usage`：指定实例的小时和每日趋势。
 - `/health`：公开存活检查。
 
-告警中的产品和指标可以对应到详情路由。页面支持桌面和移动端，不需要从页面底部选择产品再跳回顶部查看图表。
+React Router 负责浏览器页面路由，Hono 负责 `/api/*` 和 `/health`。首页通过独立接口实时查询卡片所需的轻量数据，不依赖 Cron 或 KV 快照；进入产品页后才查询对应产品的完整趋势和贡献实例，实例趋势在用户钻取时再查询。其他请求经认证后交给 Workers Static Assets；未知页面由 `index.html` 接管，浏览器刷新嵌套路由不会返回 404。
 
-## 监控额度
+## 数据与告警
 
-- Workers：Requests、CPU milliseconds
-- D1：Rows read、Rows written
-- Workers KV：Read、Write、Delete、List operations
-- R2：Class A、Class B operations
-- Durable Objects：Compute requests
-- Queues：Billable operations
-- Workers AI：Neurons（日额度）
-- Containers：vCPU seconds
+- Billing API 读取真实订阅计费周期。
+- GraphQL Analytics 查询当前周期、最近一小时、小时和每日趋势。
+- 资源维度用于定位 Worker、D1、KV、R2、Queue 等贡献者。
+- 采集失败的指标保留最近可信状态，不会以零用量触发错误恢复。
+- 通知成功后才提交新的告警状态，投递失败会在后续周期重试。
 
-额度定义位于 `src/metrics.ts`，对应 Cloudflare 当前公开的 Workers Paid / PayGo 包含额度。
+监控指标包括 Workers、D1、Workers KV、R2 操作与存储、Durable Objects、Queues、Workers AI 和 Containers。额度定义位于 `src/metrics.ts`。
 
-## 告警规则
-
-每个指标计算：
-
-```text
-safe hourly rate = remaining quota / remaining period hours
-projected usage = used + last hour usage × remaining period hours
-```
+风险等级：
 
 - `warning`：已用或期末预测达到额度的 80%。
-- `critical`：按最近一小时速度预测会在周期结束前超过额度。
-- `exceeded`：当前周期已用量已经超过额度。
-- Critical 连续 2 个十分钟样本后开启事件；Exceeded 立即开启。
-- 风险持续期间每 60 分钟重复发送邮件和 Webhook。
-- 连续 3 个样本不再预测超额后发送恢复通知。
+- `critical`：按近期速度预测会在周期结束前超过额度。
+- `exceeded`：当前周期已超过额度。
 
-事件类型：
+`USAGE_ALERT_POLICIES` 可以将指定指标设为 `track_only`，继续展示但不发送额度告警。
 
-- `cloudflare.quota_risk`
-- `cloudflare.quota_recovered`
-- `cloudflare.monitor_error`
+## 本地开发
 
-## 权限
+需要 Node.js 24.15 或更新版本。
+
+```sh
+npm install
+npm run dev
+```
+
+未提交的 `.dev.vars.local` 需要提供：
+
+```text
+CF_API_TOKEN
+ALERT_WEBHOOK_URL
+ALERT_EMAIL_FROM
+ALERT_EMAIL_TO
+DASHBOARD_PASSWORD
+```
+
+`npm run dev` 会显式选择 Cloudflare `local` 环境。`npm run preview` 会先生成带本地预览变量的构建；常规 `npm run build` 不加载或复制 `.dev.vars.local`，生产 Secret 仍由 Cloudflare 管理。
+
+本地触发 Cron：
+
+```sh
+curl "http://localhost:5173/cdn-cgi/handler/scheduled?cron=5,15,25,35,45,55+*+*+*+*"
+```
+
+## 本地质量检查
+
+```sh
+npm run typecheck
+npm test
+npm run build
+```
+
+或运行完整的纯本地检查：
+
+```sh
+npm run check
+```
+
+`npm run check` 只生成绑定类型、执行类型检查和测试并构建产物，不部署。
+
+## Cloudflare 权限
 
 `CF_API_TOKEN` 需要当前账户的：
 
 - `Account Analytics Read`
 - `Billing Read`
+- `D1 Read`
+- `Workers KV Storage Read`
+- `Workers Scripts Read`
+- `Containers Read`
 
-Billing Read 仅用于读取 PayGo 订阅元数据和计费周期。所有资源范围应限制为被监控账户。
+资源范围应限制为被监控账户。生产 Secret 使用 `wrangler secret put` 管理，不写入配置或源码。
+
+账户名称以及 D1、KV、Durable Objects、Queues 和 Containers 的资源名称会从 Cloudflare API 实时获取，并在 `STATE` KV 中缓存 15 分钟。Workers、R2 和 Workers AI 的 Analytics 维度已经直接包含可展示名称，不需要额外资源映射。
 
 ## 部署
 
+部署是显式操作，不包含在默认检查中：
+
 ```sh
-npm install
-npx wrangler login
-npx wrangler secret put CF_API_TOKEN
-npx wrangler secret put ALERT_WEBHOOK_URL
-npx wrangler secret put ALERT_EMAIL_FROM
-npx wrangler secret put ALERT_EMAIL_TO
-npx wrangler secret put DASHBOARD_PASSWORD
-npm run check
 npm run deploy
 ```
 
 定时任务在每小时的 `05/15/25/35/45/55` 分运行，查询结束于 5 分钟前的数据，为 Analytics 聚合预留时间。
-
-## 本地运行
-
-```sh
-npm run dev
-```
-
-本地触发 Cron：
-
-```sh
-curl "http://localhost:8787/cdn-cgi/handler/scheduled?cron=5,15,25,35,45,55+*+*+*+*"
-```
-
-真实查询需要在未提交的 `.dev.vars` 中提供生产 Secret。默认本地 Email binding 只模拟投递。

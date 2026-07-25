@@ -6,6 +6,7 @@ import {
   type MonitorState,
 } from "../src/detection";
 import { METRIC_NAMES, type UsageSnapshot } from "../src/metrics";
+import { sumTransitionalDailyForecast } from "../src/forecast";
 
 const config: DetectionConfig = {
   alertAfterSamples: 2,
@@ -88,8 +89,10 @@ describe("quota risk detection", () => {
     const evaluation = evaluateMetric("r2.storage_gb_month", usage);
 
     expect(evaluation.projectedUsage).toBeCloseTo(2 + 0.01 * 24 * 16);
-    expect(evaluation.forecastDailyUsage).toBeCloseTo(0.3);
-    expect(evaluation.forecastProjectedUsage).toBeCloseTo(2 + 0.3 * 16);
+    expect(evaluation.forecastDailyUsage).toBeCloseTo(0.9 / 7);
+    expect(evaluation.forecastProjectedUsage).toBeCloseTo(
+      2 + sumTransitionalDailyForecast(0, 0.9 / 7, 16),
+    );
   });
 
   it("opens after two risky samples and repeats only when the reminder is due", () => {
@@ -218,6 +221,33 @@ describe("quota risk detection", () => {
     expect(
       trackOnly.state.metrics["workers.requests"]?.incident,
     ).toBeUndefined();
+  });
+
+  it("preserves the last trusted state when a collector fails", () => {
+    let state = openIncident();
+    const trustedUsage = state.latest?.find(
+      (metric) => metric.metric === "workers.requests",
+    )?.used;
+
+    for (const measuredAt of [
+      "2026-07-15T00:20:00.000Z",
+      "2026-07-15T00:30:00.000Z",
+      "2026-07-15T00:40:00.000Z",
+    ]) {
+      const failed = snapshot(measuredAt, 0, 0);
+      failed.failures.push({
+        collector: "workers",
+        message: "GraphQL unavailable",
+      });
+      const result = detectQuotaRisks(state, failed, config);
+      expect(result.recoveries).toEqual([]);
+      state = result.state;
+    }
+
+    expect(state.metrics["workers.requests"]?.incident).toBeDefined();
+    expect(
+      state.latest?.find((metric) => metric.metric === "workers.requests")?.used,
+    ).toBe(trustedUsage);
   });
 });
 
