@@ -219,7 +219,15 @@ export function evaluateMetric(
   const remainingQuota = Math.max(0, quota - used);
   const safeHourlyUsage =
     remainingHours === 0 ? 0 : remainingQuota / remainingHours;
-  const projectedUsage = used + recentHourlyUsage * remainingHours;
+  const dailyPeakStorage = usesDailyPeakAverage(metric);
+  const remainingFullDays = fullDaysAfterCurrentUtcDay(
+    snapshot.measuredAt,
+    period.end,
+  );
+  const projectedUsage =
+    used +
+    recentHourlyUsage *
+      (dailyPeakStorage ? remainingFullDays * 24 : remainingHours);
   const projectedRatio = projectedUsage / quota;
   const forecast = buildStableForecast(metric, snapshot, period, used);
   const usedRatio = used / quota;
@@ -320,8 +328,10 @@ function buildStableForecast(
   );
   const forecastProjectedUsage =
     used +
-    forecastHourlyUsage * remainingCurrentDayHours +
-    forecastDailyUsage * remainingFullDays;
+    (usesDailyPeakAverage(metric)
+      ? forecastDailyUsage * remainingFullDays
+      : forecastHourlyUsage * remainingCurrentDayHours +
+        forecastDailyUsage * remainingFullDays);
 
   return {
     forecastHourlyUsage,
@@ -331,6 +341,21 @@ function buildStableForecast(
     forecastProjectedUsage,
     forecastProjectedRatio: forecastProjectedUsage / METRICS[metric].quota,
   };
+}
+
+function fullDaysAfterCurrentUtcDay(measuredAt: string, periodEnd: string): number {
+  const measuredAtMs = Date.parse(measuredAt);
+  const nextUtcDayMs =
+    Math.floor(measuredAtMs / DAY_MS) * DAY_MS + DAY_MS;
+  return Math.max(0, (Date.parse(periodEnd) - nextUtcDayMs) / DAY_MS);
+}
+
+function usesDailyPeakAverage(metric: MetricName): boolean {
+  const definition = METRICS[metric];
+  return (
+    "usageModel" in definition &&
+    definition.usageModel === "daily_peak_average_30d"
+  );
 }
 
 function weightedAverage(values: number[]): number {

@@ -43,7 +43,12 @@ interface InstanceMetricDefinition {
   multiplier?: number;
   action?: string;
   actions?: ReadonlySet<string>;
+  storage?: true;
 }
+
+const BYTES_PER_GB = 1_000_000_000;
+const DAYS_PER_GB_MONTH = 30;
+const HOURS_PER_GB_MONTH = DAYS_PER_GB_MONTH * 24;
 
 const R2_CLASS_A = new Set([
   "ListBuckets",
@@ -164,6 +169,11 @@ const collectors: Collector[] = [
         r2Metric(rows, "r2.class_a_operations", R2_CLASS_A),
         r2Metric(rows, "r2.class_b_operations", R2_CLASS_B),
       ]),
+  },
+  {
+    name: "r2_storage",
+    query: r2StorageQuery,
+    extract: (account) => extractR2Storage(account),
   },
   {
     name: "durable_objects",
@@ -303,6 +313,13 @@ const INSTANCE_METRICS = {
     valuePath: ["sum", "requests"],
     actions: R2_CLASS_B,
   },
+  "r2.storage_gb_month": {
+    dataset: "r2StorageAdaptiveGroups",
+    resourceField: "bucketName",
+    selection: "max { payloadSize metadataSize }",
+    valuePath: ["max", "payloadSize"],
+    storage: true,
+  },
   "durable_objects.requests": {
     dataset: "durableObjectsInvocationsAdaptiveGroups",
     resourceField: "namespaceId",
@@ -395,6 +412,9 @@ export async function collectQuotaUsage(
     cycleStart: cycle.start,
     trendStart: cycle.start,
     recentStart,
+    storageStart: new Date(
+      Math.max(Date.parse(cycle.start), measuredAtMs - 48 * 60 * 60 * 1_000),
+    ).toISOString(),
     hourlyStart: new Date(
       Math.max(Date.parse(cycle.start), hourlyEndMs - 48 * 60 * 60 * 1_000),
     ).toISOString(),
@@ -463,6 +483,9 @@ export async function collectQuotaUsage(
 }
 
 function instanceUsageQuery(definition: InstanceMetricDefinition): string {
+  if (definition.storage) {
+    return r2StorageInstanceQuery(definition);
+  }
   const hourlySelection = withInstanceTimeDimension(
     definition.selection,
     "datetimeHour",
@@ -515,6 +538,9 @@ function extractInstanceSeries(
   dimension: "datetimeHour" | "date",
   definition: InstanceMetricDefinition,
 ): UsageSeries["points"] {
+  if (definition.storage) {
+    return extractR2StorageInstanceSeries(rows, dimension);
+  }
   const byTimestamp = new Map<string, number>();
   for (const row of rows) {
     const action = getOptionalStringAtPath(row, ["dimensions", "actionType"]);
@@ -596,8 +622,269 @@ function usageQuery(
   }`;
 }
 
+function r2StorageQuery(includeTrends: boolean): string {
+  const trendVariables = includeTrends
+    ? `
+    $trendStart: Time!
+    $hourlyStart: Time!
+    $hourlyEnd: Time!`
+    : "";
+  const trends = includeTrends
+    ? `
+        hourly: r2StorageAdaptiveGroups(
+          limit: 10000
+          filter: { datetime_geq: $hourlyStart, datetime_lt: $hourlyEnd }
+        ) {
+          dimensions { datetimeHour bucketName }
+          max { payloadSize metadataSize }
+        }
+        daily: r2StorageAdaptiveGroups(
+          limit: 10000
+          filter: { datetime_geq: $trendStart, datetime_lt: $end }
+        ) {
+          dimensions { date bucketName }
+          max { payloadSize metadataSize }
+        }`
+    : "";
+  return `query R2StorageUsage(
+    $accountId: string!
+    $cycleStart: Time!
+    $storageStart: Time!
+    ${trendVariables}
+    $end: Time!
+  ) {
+    viewer {
+      accounts(filter: { accountTag: $accountId }) {
+        cycle: r2StorageAdaptiveGroups(
+          limit: 10000
+          filter: { datetime_geq: $cycleStart, datetime_lt: $end }
+        ) {
+          dimensions { date bucketName }
+          max { payloadSize metadataSize }
+        }
+        recent: r2StorageAdaptiveGroups(
+          limit: 10000
+          orderBy: [datetime_DESC]
+          filter: { datetime_geq: $storageStart, datetime_lt: $end }
+        ) {
+          dimensions { datetime bucketName }
+          max { payloadSize metadataSize }
+        }
+        ${trends}
+      }
+    }
+  }`;
+}
+
+function r2StorageInstanceQuery(
+  definition: InstanceMetricDefinition,
+): string {
+  return `query R2StorageInstanceUsage(
+    $accountId: string!
+    $instanceId: string!
+    $hourlyStart: Time!
+    $trendStart: Time!
+    $end: Time!
+  ) {
+    viewer {
+      accounts(filter: { accountTag: $accountId }) {
+        hourly: ${definition.dataset}(
+          limit: 10000
+          filter: {
+            datetime_geq: $hourlyStart
+            datetime_lt: $end
+            ${definition.resourceField}: $instanceId
+          }
+        ) {
+          dimensions { datetimeHour }
+          max { payloadSize metadataSize }
+        }
+        daily: ${definition.dataset}(
+          limit: 10000
+          filter: {
+            datetime_geq: $trendStart
+            datetime_lt: $end
+            ${definition.resourceField}: $instanceId
+          }
+        ) {
+          dimensions { date }
+          max { payloadSize metadataSize }
+        }
+      }
+    }
+  }`;
+}
+
 function withTimeDimension(selection: string, dimension: string): string {
   return selection.replace("dimensions {", `dimensions { ${dimension}`);
+}
+
+function extractR2Storage(
+  account: Record<string, unknown>,
+): CollectorResult {
+  const cycleRows = getArray(account, "cycle");
+  const recentRows = getArray(account, "recent");
+  const hourlyRows = getOptionalArray(account, "hourly");
+  const dailyRows = getOptionalArray(account, "daily");
+  return {
+    cycle: [
+      storageValueFromRows(
+        cycleRows,
+        "date",
+        1 / (BYTES_PER_GB * DAYS_PER_GB_MONTH),
+      ),
+    ],
+    recent: [
+      latestStorageValue(
+        recentRows,
+        1 / (BYTES_PER_GB * HOURS_PER_GB_MONTH),
+      ),
+    ],
+    hourly: [
+      storageSeriesFromRows(
+        hourlyRows,
+        "datetimeHour",
+        1 / (BYTES_PER_GB * HOURS_PER_GB_MONTH),
+      ),
+    ],
+    daily: [
+      storageSeriesFromRows(
+        dailyRows,
+        "date",
+        1 / (BYTES_PER_GB * DAYS_PER_GB_MONTH),
+      ),
+    ],
+  };
+}
+
+function extractR2StorageInstanceSeries(
+  rows: Record<string, unknown>[],
+  dimension: "datetimeHour" | "date",
+): UsageSeries["points"] {
+  const multiplier =
+    dimension === "date"
+      ? 1 / (BYTES_PER_GB * DAYS_PER_GB_MONTH)
+      : 1 / (BYTES_PER_GB * HOURS_PER_GB_MONTH);
+  const byTimestamp = new Map<string, number>();
+  for (const row of rows) {
+    const timestamp = normalizeTimestamp(
+      getStringAtPath(row, ["dimensions", dimension]),
+      dimension,
+    );
+    const value = storageBytes(row) * multiplier;
+    byTimestamp.set(timestamp, Math.max(byTimestamp.get(timestamp) ?? 0, value));
+  }
+  return [...byTimestamp.entries()]
+    .map(([timestamp, value]) => ({ timestamp, value }))
+    .sort((left, right) => left.timestamp.localeCompare(right.timestamp));
+}
+
+function storageValueFromRows(
+  rows: Record<string, unknown>[],
+  dimension: "date" | "datetimeHour",
+  multiplier: number,
+): UsageValue {
+  const byBucketAndTime = storagePeaks(rows, dimension);
+  const byBucket = new Map<string, number>();
+  for (const [key, bytes] of byBucketAndTime) {
+    const bucket = key.slice(key.indexOf("\n") + 1);
+    byBucket.set(bucket, (byBucket.get(bucket) ?? 0) + bytes * multiplier);
+  }
+  return usageValueFromContributors("r2.storage_gb_month", byBucket);
+}
+
+function latestStorageValue(
+  rows: Record<string, unknown>[],
+  multiplier: number,
+): UsageValue {
+  const latestByBucket = new Map<string, { timestamp: string; bytes: number }>();
+  for (const row of rows) {
+    const bucket =
+      getOptionalStringAtPath(row, ["dimensions", "bucketName"]) ?? "account";
+    const timestamp = getStringAtPath(row, ["dimensions", "datetime"]);
+    const current = latestByBucket.get(bucket);
+    if (!current || timestamp > current.timestamp) {
+      latestByBucket.set(bucket, { timestamp, bytes: storageBytes(row) });
+    }
+  }
+  return usageValueFromContributors(
+    "r2.storage_gb_month",
+    new Map(
+      [...latestByBucket].map(([bucket, value]) => [
+        bucket,
+        value.bytes * multiplier,
+      ]),
+    ),
+  );
+}
+
+function storageSeriesFromRows(
+  rows: Record<string, unknown>[],
+  dimension: "date" | "datetimeHour",
+  multiplier: number,
+): UsageSeries {
+  const byTime = new Map<string, number>();
+  for (const [key, bytes] of storagePeaks(rows, dimension)) {
+    const timestamp = key.slice(0, key.indexOf("\n"));
+    byTime.set(timestamp, (byTime.get(timestamp) ?? 0) + bytes * multiplier);
+  }
+  return {
+    name: "r2.storage_gb_month",
+    points: [...byTime.entries()]
+      .map(([timestamp, value]) => ({ timestamp, value }))
+      .sort((left, right) => left.timestamp.localeCompare(right.timestamp)),
+  };
+}
+
+function storagePeaks(
+  rows: Record<string, unknown>[],
+  dimension: "date" | "datetimeHour",
+): Map<string, number> {
+  const peaks = new Map<string, number>();
+  for (const row of rows) {
+    const timestamp = normalizeTimestamp(
+      getStringAtPath(row, ["dimensions", dimension]),
+      dimension,
+    );
+    const bucket =
+      getOptionalStringAtPath(row, ["dimensions", "bucketName"]) ?? "account";
+    const key = `${timestamp}\n${bucket}`;
+    peaks.set(key, Math.max(peaks.get(key) ?? 0, storageBytes(row)));
+  }
+  return peaks;
+}
+
+function normalizeTimestamp(
+  value: string,
+  dimension: "date" | "datetimeHour",
+): string {
+  return dimension === "date" ? `${value}T00:00:00.000Z` : value;
+}
+
+function storageBytes(row: Record<string, unknown>): number {
+  return (
+    getNumberAtPath(row, ["max", "payloadSize"]) +
+    getNumberAtPath(row, ["max", "metadataSize"])
+  );
+}
+
+function usageValueFromContributors(
+  name: MetricName,
+  byResource: ReadonlyMap<string, number>,
+): UsageValue {
+  const contributors = [...byResource.entries()]
+    .map(([id, value]) => ({
+      id,
+      name: id === "account" ? "Account-level storage" : id,
+      value,
+    }))
+    .filter((contributor) => contributor.value > 0)
+    .sort((left, right) => right.value - left.value);
+  return {
+    name,
+    value: contributors.reduce((sum, contributor) => sum + contributor.value, 0),
+    contributors,
+  };
 }
 
 function extractDual(

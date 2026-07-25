@@ -59,6 +59,38 @@ describe("quota risk detection", () => {
     );
   });
 
+  it("projects R2 storage from future daily peaks without double-counting today", () => {
+    const usage = snapshot("2026-07-15T12:00:00.000Z", 0, 0);
+    const storage = usage.values.find(
+      (value) => value.name === "r2.storage_gb_month",
+    );
+    const recent = usage.recentValues.find(
+      (value) => value.name === "r2.storage_gb_month",
+    );
+    if (!storage || !recent) {
+      throw new Error("R2 storage metric is missing");
+    }
+    storage.value = 2;
+    recent.value = 0.01;
+    usage.dailySeries = METRIC_NAMES.map((name) => ({
+      name,
+      points:
+        name === "r2.storage_gb_month"
+          ? [
+              { timestamp: "2026-07-12T00:00:00.000Z", value: 0.2 },
+              { timestamp: "2026-07-13T00:00:00.000Z", value: 0.3 },
+              { timestamp: "2026-07-14T00:00:00.000Z", value: 0.4 },
+            ]
+          : [],
+    }));
+
+    const evaluation = evaluateMetric("r2.storage_gb_month", usage);
+
+    expect(evaluation.projectedUsage).toBeCloseTo(2 + 0.01 * 24 * 16);
+    expect(evaluation.forecastDailyUsage).toBeCloseTo(0.3);
+    expect(evaluation.forecastProjectedUsage).toBeCloseTo(2 + 0.3 * 16);
+  });
+
   it("opens after two risky samples and repeats only when the reminder is due", () => {
     const first = detectQuotaRisks(
       { metrics: {} },

@@ -2,7 +2,7 @@ export const PRODUCTS = {
   workers: { label: "Workers", description: "Requests and CPU time" },
   d1: { label: "D1", description: "Rows read and written" },
   kv: { label: "Workers KV", description: "Key operations" },
-  r2: { label: "R2", description: "Class A and B operations" },
+  r2: { label: "R2", description: "Storage and Class A/B operations" },
   durable_objects: {
     label: "Durable Objects",
     description: "Compute requests",
@@ -14,6 +14,7 @@ export const PRODUCTS = {
 
 export type ProductName = keyof typeof PRODUCTS;
 export type QuotaPeriod = "billing_cycle" | "utc_day";
+export type UsageModel = "counter" | "daily_peak_average_30d";
 
 export const METRICS = {
   "workers.requests": {
@@ -86,6 +87,14 @@ export const METRICS = {
     quota: 10_000_000,
     period: "billing_cycle",
   },
+  "r2.storage_gb_month": {
+    product: "r2",
+    label: "Storage",
+    unit: "GB-month",
+    quota: 10,
+    period: "billing_cycle",
+    usageModel: "daily_peak_average_30d",
+  },
   "durable_objects.requests": {
     product: "durable_objects",
     label: "Requests",
@@ -122,6 +131,7 @@ export const METRICS = {
     unit: string;
     quota: number;
     period: QuotaPeriod;
+    usageModel?: UsageModel;
   }
 >;
 
