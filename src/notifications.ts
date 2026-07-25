@@ -33,14 +33,21 @@ export interface EmailContent {
   html: string;
 }
 
+export interface BarkContent {
+  title: string;
+  body: string;
+  group: string;
+  level: "critical" | "timeSensitive" | "active" | "passive";
+}
+
 export async function sendNotifications(
   env: Env,
   event: AlertEvent,
 ): Promise<void> {
   await deliverAll([
     {
-      name: "webhook",
-      send: () => sendWebhook(env.ALERT_WEBHOOK_URL, event),
+      name: "bark",
+      send: () => sendBark(env.ALERT_WEBHOOK_URL, event),
     },
     {
       name: "email",
@@ -75,20 +82,7 @@ export async function deliverAll(
 }
 
 export function buildEmail(event: AlertEvent): EmailContent {
-  const details =
-    event.type === "cloudflare.quota_risk"
-      ? event.alerts.map(alertLine)
-      : event.type === "cloudflare.quota_recovered"
-        ? event.recoveries.map(recoveryLine)
-        : event.errors.map(
-            (error) => `${error.collector}: ${error.message}`,
-          );
-  const title =
-    event.type === "cloudflare.quota_risk"
-      ? `Cloudflare quota risk: ${event.alerts.length} metric(s)`
-      : event.type === "cloudflare.quota_recovered"
-        ? `Cloudflare quota risk recovered: ${event.recoveries.length} metric(s)`
-        : `Cloudflare monitor error: ${event.errors.length} collector(s)`;
+  const { title, details } = buildNotificationContent(event);
   const subject = `[Cloudflare] ${title} on ${event.account.name}`;
   const text = [
     title,
@@ -104,6 +98,59 @@ export function buildEmail(event: AlertEvent): EmailContent {
     `<ul>${details.map((detail) => `<li>${escapeHtml(detail)}</li>`).join("")}</ul>`,
   ].join("");
   return { subject, text, html };
+}
+
+export function buildBark(event: AlertEvent): BarkContent {
+  const { title, details } = buildNotificationContent(event);
+  return {
+    title: `[Cloudflare] ${title} on ${event.account.name}`,
+    body: [
+      `Account: ${event.account.name} (${event.account.id})`,
+      `Detected: ${event.detectedAt}`,
+      "",
+      ...details,
+    ].join("\n"),
+    group: "cf-usage-monitor",
+    level: barkLevel(event),
+  };
+}
+
+function barkLevel(event: AlertEvent): BarkContent["level"] {
+  if (event.type === "cloudflare.quota_recovered") {
+    return "passive";
+  }
+  if (event.type === "cloudflare.monitor_error") {
+    return "active";
+  }
+  return event.alerts.some(
+    (alert) => alert.risk === "critical" || alert.risk === "exceeded",
+  )
+    ? "critical"
+    : "timeSensitive";
+}
+
+function buildNotificationContent(event: AlertEvent): {
+  title: string;
+  details: string[];
+} {
+  if (event.type === "cloudflare.quota_risk") {
+    return {
+      title: `Cloudflare quota risk: ${event.alerts.length} metric(s)`,
+      details: event.alerts.map(alertLine),
+    };
+  }
+  if (event.type === "cloudflare.quota_recovered") {
+    return {
+      title: `Cloudflare quota risk recovered: ${event.recoveries.length} metric(s)`,
+      details: event.recoveries.map(recoveryLine),
+    };
+  }
+  return {
+    title: `Cloudflare monitor error: ${event.errors.length} collector(s)`,
+    details: event.errors.map(
+      (error) => `${error.collector}: ${error.message}`,
+    ),
+  };
 }
 
 function recoveryLine(recovery: QuotaRecovery): string {
@@ -138,21 +185,28 @@ function metricTitle(metric: QuotaAlert["metric"]): string {
   return `${PRODUCTS[definition.product].label} · ${definition.label}`;
 }
 
-async function sendWebhook(
-  webhookUrl: string,
+export async function sendBark(
+  barkUrl: string,
   event: AlertEvent,
 ): Promise<void> {
-  const url = new URL(webhookUrl);
+  const url = new URL(barkUrl);
   if (url.protocol !== "https:" && url.protocol !== "http:") {
     throw new Error("ALERT_WEBHOOK_URL must use HTTP or HTTPS");
   }
+  const [deviceKey] = url.pathname.split("/").filter(Boolean);
+  if (!deviceKey) {
+    throw new Error("ALERT_WEBHOOK_URL must include a Bark device key");
+  }
+  url.pathname = `/${deviceKey}`;
+  url.searchParams.delete("level");
+
   const response = await fetch(url, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
+      "Content-Type": "application/json; charset=utf-8",
       "User-Agent": "cf-usage-monitor/0.2",
     },
-    body: JSON.stringify(event),
+    body: JSON.stringify(buildBark(event)),
   });
   if (!response.ok) {
     throw new Error(

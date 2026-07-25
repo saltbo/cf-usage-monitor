@@ -76,6 +76,12 @@ ALERT_EMAIL_TO
 DASHBOARD_PASSWORD
 ```
 
+`ALERT_WEBHOOK_URL` 使用 Bark App 复制的推送 URL。发送时会保留 URL 上的
+`volume` 等参数，并通过 JSON POST 推送告警标题、正文和
+`cf-usage-monitor` 分组。通知等级由事件决定：严重或超限告警使用
+`critical`，普通风险使用 `timeSensitive`，监控错误使用 `active`，恢复通知使用
+`passive`。
+
 `npm run dev` 会显式选择 Cloudflare `local` 环境。`npm run preview` 会先生成带本地预览变量的构建；常规 `npm run build` 不加载或复制 `.dev.vars.local`，生产 Secret 仍由 Cloudflare 管理。
 
 本地触发 Cron：
