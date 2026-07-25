@@ -21,6 +21,10 @@ a{color:inherit}.skip-link{position:fixed;top:8px;left:8px;z-index:99;padding:8p
 .brand-mark{position:relative;width:28px;height:22px}.brand-mark i{position:absolute;bottom:2px;border-radius:9px 9px 3px 3px;background:#f6821f}
 .brand-mark i:first-child{left:0;width:18px;height:11px}.brand-mark i:last-child{right:0;width:16px;height:17px;background:#d9670d}
 .header-meta{display:flex;align-items:center;gap:14px;color:var(--muted);font-size:11px}
+.language-switch{display:flex;padding:2px;background:var(--canvas);border:1px solid var(--line);border-radius:6px}
+.language-switch button{min-width:30px;min-height:26px;padding:0 6px;color:var(--muted);background:transparent;border:0;
+  border-radius:4px;cursor:pointer;font-size:9px;font-weight:750}.language-switch button[aria-pressed=true]{color:var(--text);background:var(--surface-2)}
+.language-switch button:focus-visible{outline:2px solid var(--teal);outline-offset:1px}
 #refresh-button{min-height:36px;padding:0 13px;color:var(--text);background:var(--surface);
   border:1px solid var(--line-strong);border-radius:7px;cursor:pointer}
 #refresh-button:hover{border-color:var(--teal)}#refresh-button:disabled{opacity:.55;cursor:wait}

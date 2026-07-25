@@ -1,12 +1,18 @@
 import type { RiskLevel } from "../../detection";
-import { RISK_LABEL } from "../lib/risk";
+import { useTranslation } from "react-i18next";
+import { riskLabel } from "../lib/risk";
 
 export function RiskBadge({
   risk,
-  label = RISK_LABEL[risk],
+  label,
 }: {
   risk: RiskLevel;
   label?: string;
 }) {
-  return <span className={`risk-chip risk-${risk}`}>{label}</span>;
+  useTranslation();
+  return (
+    <span className={`risk-chip risk-${risk}`}>
+      {label ?? riskLabel(risk)}
+    </span>
+  );
 }

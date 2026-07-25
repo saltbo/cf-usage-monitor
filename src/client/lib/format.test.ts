@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import i18n from "../i18n";
 import {
   formatBillingThrough,
   formatCurrency,
@@ -9,8 +10,8 @@ import {
 describe("presentation formatters", () => {
   it("formats relative update times deterministically", () => {
     const now = Date.parse("2026-07-25T12:00:00.000Z");
-    expect(relativeTime("2026-07-25T11:42:00.000Z", now)).toBe("18 分钟前");
-    expect(relativeTime("2026-07-25T09:00:00.000Z", now)).toBe("3 小时前");
+    expect(relativeTime("2026-07-25T11:42:00.000Z", now)).toBe("18分钟前");
+    expect(relativeTime("2026-07-25T09:00:00.000Z", now)).toBe("3小时前");
   });
 
   it("shortens only long resource identifiers", () => {
@@ -26,5 +27,18 @@ describe("presentation formatters", () => {
     expect(formatBillingThrough("2026-07-25T00:00:00.000Z")).toBe(
       "7月24日",
     );
+  });
+
+  it("formats values using the active English locale", async () => {
+    await i18n.changeLanguage("en");
+
+    expect(formatCurrency(12.5, "USD")).toBe("$12.50");
+    expect(formatBillingThrough("2026-07-25T00:00:00.000Z")).toBe("Jul 24");
+    expect(
+      relativeTime(
+        "2026-07-25T11:42:00.000Z",
+        Date.parse("2026-07-25T12:00:00.000Z"),
+      ),
+    ).toBe("18 minutes ago");
   });
 });

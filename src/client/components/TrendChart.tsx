@@ -3,13 +3,16 @@ import {
   type PointerEvent,
   useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 import type { DashboardMetric } from "../../shared/dashboard";
 import { shortTermUsageForecast } from "../../forecast";
 import {
   formatCompact,
+  formatDate,
   formatTimestamp,
   localTimeZoneLabel,
 } from "../lib/format";
+import { formatUnit, metricLabel } from "../lib/localization";
 
 interface TrendPoint {
   timestamp: string;
@@ -39,6 +42,7 @@ export function TrendChart({
   grain: "hourly" | "daily";
   points?: TrendPoint[];
 }) {
+  const { t } = useTranslation();
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const points = completePeriod
     ? buildTrendSlots(metric, grain, sourcePoints, measuredAt, cycleStart)
@@ -49,7 +53,7 @@ export function TrendChart({
         state: "complete",
       }));
   if (points.length === 0) {
-    return <div className="empty-state">Cloudflare 暂无这个时间范围的趋势数据</div>;
+    return <div className="empty-state">{t("chart.empty")}</div>;
   }
 
   const safeValue =
@@ -150,7 +154,7 @@ export function TrendChart({
             label:
               activePoint?.forecast === null
                 ? `MA${shortWindow}`
-                : `MA${shortWindow}预测`,
+                : t("product.maForecast", { window: shortWindow }),
             value:
               activePoint?.forecast === null
                 ? shortAverage.find((point) => point.index === activeIndex)
@@ -163,7 +167,7 @@ export function TrendChart({
             label:
               activePoint?.forecast === null
                 ? `MA${longWindow}`
-                : `MA${longWindow}预测`,
+                : t("product.maForecast", { window: longWindow }),
             value:
               activePoint?.forecast === null
                 ? longAverage.find((point) => point.index === activeIndex)
@@ -215,12 +219,18 @@ export function TrendChart({
 
   return (
     <div
-      aria-label={`${metric.label}趋势，安全线 ${formatCompact(safeValue)} ${metric.unit}`}
+      aria-label={t("chart.trendLabel", {
+        metric: metricLabel(metric.metric),
+        value: formatCompact(safeValue),
+        unit: formatUnit(metric.unit),
+      })}
       className={className}
       role="img"
     >
       <svg
-        aria-label={`${metric.label}交互式趋势图。使用左右方向键浏览数据点。`}
+        aria-label={t("chart.interactive", {
+          metric: metricLabel(metric.metric),
+        })}
         onBlur={() => setActiveIndex(null)}
         onFocus={() => setActiveIndex((current) => current ?? points.length - 1)}
         onKeyDown={handleKeyDown}
@@ -284,9 +294,12 @@ export function TrendChart({
                   y={actualTop}
                 >
                   <title>
-                    {formatTrendTimestamp(point.timestamp, grain, true)} · 实际{" "}
-                    {formatCompact(point.actual)} {metric.unit}
-                    {point.state === "partial" ? "（进行中）" : ""}
+                    {formatTrendTimestamp(point.timestamp, grain, true)} ·{" "}
+                    {t("chart.actual")} {formatCompact(point.actual)}{" "}
+                    {formatUnit(metric.unit)}
+                    {point.state === "partial"
+                      ? ` (${t("chart.partial")})`
+                      : ""}
                   </title>
                 </rect>
               ) : null}
@@ -306,8 +319,9 @@ export function TrendChart({
                   y={point.forecast > 0 ? projectedTop : actualTop - 1}
                 >
                   <title>
-                    {formatTrendTimestamp(point.timestamp, grain, true)} · 预测{" "}
-                    {formatCompact(point.value)} {metric.unit}
+                    {formatTrendTimestamp(point.timestamp, grain, true)} ·{" "}
+                    {t("chart.forecast")} {formatCompact(point.value)}{" "}
+                    {formatUnit(metric.unit)}
                   </title>
                 </rect>
               ) : null}
@@ -319,7 +333,7 @@ export function TrendChart({
                   x={x + barWidth / 2}
                   y={Math.max(plotTop + 12, actualTop - 7)}
                 >
-                  进行中
+                  {t("chart.partial")}
                 </text>
               ) : null}
               {index % tickEvery === 0 || index === points.length - 1 ? (
@@ -422,7 +436,7 @@ export function TrendChart({
               x={margin.left + 8}
               y={safeY + 15}
             >
-              ↑ 安全线
+              {t("chart.safeLine")}
             </text>
           </g>
         ) : null}
@@ -444,7 +458,7 @@ export function TrendChart({
               x={Math.min(width - margin.right - 24, nowX + 5)}
               y={plotTop + 12}
             >
-              现在
+              {t("chart.now")}
             </text>
           </g>
         )}
@@ -464,10 +478,10 @@ export function TrendChart({
         ) : null}
       </svg>
       <div className="chart-timezone">
-        时区 ·{" "}
+        {t("common.timezone")} ·{" "}
         {grain === "hourly"
           ? localTimeZoneLabel(measuredAt ?? new Date().toISOString())
-          : "UTC（日聚合）"}
+          : t("chart.dailyUtc")}
       </div>
     </div>
   );
@@ -746,11 +760,7 @@ function formatTrendTick(
   if (grain === "hourly") {
     return formatTimestamp(timestamp);
   }
-  return new Intl.DateTimeFormat("zh-CN", {
-    month: "numeric",
-    day: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(timestamp));
+  return formatDate(timestamp);
 }
 
 function formatTrendTimestamp(
@@ -786,6 +796,7 @@ function ChartTooltip({
   trendValues: { color: string; label: string; value: number }[];
   width: number;
 }) {
+  const { t } = useTranslation();
   const tooltipWidth = 190;
   const showActual = point.state !== "future";
   const showForecast = point.forecast !== null;
@@ -841,7 +852,7 @@ function ChartTooltip({
           x={x + 10}
           y={y + 36}
         >
-          {formatCompact(point.actual)} {metric.unit}
+          {formatCompact(point.actual)} {formatUnit(metric.unit)}
         </text>
       ) : null}
       {showForecast ? (
@@ -851,8 +862,12 @@ function ChartTooltip({
           x={x + 10}
           y={y + (showActual ? 53 : 36)}
         >
-          {point.state === "partial" ? "预计完整" : "预测"} ·{" "}
-          {formatCompact(point.value)} {metric.unit}
+          {t(
+            point.state === "partial"
+              ? "chart.estimatedComplete"
+              : "chart.forecast",
+          )}{" "}
+          · {formatCompact(point.value)} {formatUnit(metric.unit)}
         </text>
       ) : null}
       {trendValues.map((trend, index) => (
@@ -869,7 +884,8 @@ function ChartTooltip({
             index * 16
           }
         >
-          {trend.label} · {formatCompact(trend.value)} {metric.unit}
+          {trend.label} · {formatCompact(trend.value)}{" "}
+          {formatUnit(metric.unit)}
         </text>
       ))}
     </g>

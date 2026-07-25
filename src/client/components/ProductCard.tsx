@@ -1,18 +1,25 @@
 import { Link } from "react-router";
+import { useTranslation } from "react-i18next";
 import type { OverviewProduct } from "../../shared/dashboard";
 import { alertStatusLabel } from "../lib/risk";
 import { formatCurrency, formatPercent } from "../lib/format";
+import {
+  metricLabel,
+  productDescription,
+  productLabel,
+} from "../lib/localization";
 import { QuotaMeter } from "./QuotaMeter";
 import { RiskBadge } from "./RiskBadge";
 
 export function ProductCard({ product }: { product: OverviewProduct }) {
+  const { t } = useTranslation();
   return (
     <Link className="product-card" to={`/usage/${product.name}`}>
       <span className="product-identity">
-        <strong>{product.label}</strong>
-        <small>{product.description}</small>
+        <strong>{productLabel(product.name)}</strong>
+        <small>{productDescription(product.name)}</small>
         <span className="product-cost">
-          <small>本期实际费用</small>
+          <small>{t("cost.current")}</small>
           <b>
             {formatCurrency(product.cost.totalCost, product.cost.currency)}
           </b>
@@ -24,7 +31,7 @@ export function ProductCard({ product }: { product: OverviewProduct }) {
           return (
             <div className="quota-row" key={metric.metric}>
               <span className="quota-label">
-                {metric.label}
+                {metricLabel(metric.metric)}
                 {status ? (
                   <small className={metric.alertStatus}>{status}</small>
                 ) : null}

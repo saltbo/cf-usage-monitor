@@ -1,12 +1,18 @@
+import i18n from "../i18n";
+
+function locale(): string {
+  return i18n.resolvedLanguage === "zh-CN" ? "zh-CN" : "en-US";
+}
+
 export function formatCompact(value: number): string {
-  return new Intl.NumberFormat("zh-CN", {
+  return new Intl.NumberFormat(locale(), {
     notation: "compact",
     maximumFractionDigits: 2,
   }).format(value);
 }
 
 export function formatPercent(value: number): string {
-  return new Intl.NumberFormat("zh-CN", {
+  return new Intl.NumberFormat(locale(), {
     style: "percent",
     maximumFractionDigits: 1,
   }).format(value);
@@ -14,7 +20,7 @@ export function formatPercent(value: number): string {
 
 export function formatCurrency(value: number, currency: string): string {
   const fractionDigits = value !== 0 && Math.abs(value) < 1 ? 4 : 2;
-  return new Intl.NumberFormat("zh-CN", {
+  return new Intl.NumberFormat(locale(), {
     style: "currency",
     currency,
     minimumFractionDigits: 2,
@@ -23,7 +29,7 @@ export function formatCurrency(value: number, currency: string): string {
 }
 
 export function formatDate(value: string): string {
-  return new Intl.DateTimeFormat("zh-CN", {
+  return new Intl.DateTimeFormat(locale(), {
     month: "short",
     day: "numeric",
     timeZone: "UTC",
@@ -38,7 +44,7 @@ export function formatTimestamp(
   value: string,
   includeTimeZone = false,
 ): string {
-  return new Intl.DateTimeFormat("zh-CN", {
+  return new Intl.DateTimeFormat(locale(), {
     month: "numeric",
     day: "numeric",
     hour: "2-digit",
@@ -50,7 +56,7 @@ export function formatTimestamp(
 
 export function localTimeZoneLabel(value: string): string {
   const date = new Date(value);
-  const formatter = new Intl.DateTimeFormat("zh-CN", {
+  const formatter = new Intl.DateTimeFormat(locale(), {
     timeZoneName: "short",
   });
   const timeZone = formatter.resolvedOptions().timeZone;
@@ -64,9 +70,16 @@ export function localTimeZoneLabel(value: string): string {
 
 export function relativeTime(value: string, now = Date.now()): string {
   const minutes = Math.max(0, Math.round((now - Date.parse(value)) / 60_000));
-  if (minutes < 1) return "刚刚";
-  if (minutes < 60) return `${minutes} 分钟前`;
-  return `${Math.floor(minutes / 60)} 小时前`;
+  const formatter = new Intl.RelativeTimeFormat(locale(), { numeric: "auto" });
+  if (minutes < 1) return formatter.format(0, "second");
+  if (minutes < 60) return formatter.format(-minutes, "minute");
+  return formatter.format(-Math.floor(minutes / 60), "hour");
+}
+
+export function formatRatio(value: number): string {
+  return `${new Intl.NumberFormat(locale(), {
+    maximumFractionDigits: 1,
+  }).format(value)}×`;
 }
 
 export function shortId(value: string): string {

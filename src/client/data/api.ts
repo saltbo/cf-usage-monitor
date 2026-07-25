@@ -4,6 +4,7 @@ import type {
   ProductDashboardData,
 } from "../../shared/dashboard";
 import type { MetricName, ProductName } from "../../metrics";
+import i18n from "../i18n";
 
 export function loadOverview(signal?: AbortSignal): Promise<OverviewData> {
   return getJson("/api/overview", signal);
@@ -37,7 +38,7 @@ async function getJson<T>(
     signal,
   });
   if (!response.ok) {
-    throw new Error(`请求失败：HTTP ${response.status}`);
+    throw new Error(i18n.t("errors.request", { status: response.status }));
   }
   return (await response.json()) as T;
 }

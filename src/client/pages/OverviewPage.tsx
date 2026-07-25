@@ -8,21 +8,22 @@ import {
 } from "../lib/format";
 
 export function OverviewPage() {
+  const { t } = useTranslation();
   const { data, error, loading, refresh, refreshing } = useDashboard();
   if (loading) {
-    return <div className="loading-state">正在查询 Cloudflare 用量…</div>;
+    return <div className="loading-state">{t("overview.loading")}</div>;
   }
   if (!data) {
     return (
       <section className="error-state">
-        <h1>暂时无法加载用量</h1>
+        <h1>{t("overview.errorTitle")}</h1>
         <p>{error}</p>
         <button
           disabled={refreshing}
           onClick={() => void refresh()}
           type="button"
         >
-          {refreshing ? "查询中" : "重试"}
+          {refreshing ? t("common.refreshing") : t("common.retry")}
         </button>
       </section>
     );
@@ -35,56 +36,54 @@ export function OverviewPage() {
         ? "normal"
         : data.status;
   const statusLabel =
-    data.status === "degraded"
-      ? "数据不完整"
-      : data.status === "critical"
-        ? "存在超额风险"
-        : data.status === "warning"
-          ? "需要关注"
-          : "额度安全";
+    t(`overview.status.${data.status}`);
 
   return (
     <>
       <div className="page-heading">
         <div>
-          <p className="eyebrow">账户额度总览</p>
-          <h1>哪些产品有超额风险？</h1>
+          <p className="eyebrow">{t("overview.eyebrow")}</p>
+          <h1>{t("overview.title")}</h1>
           <p>
-            当前计费周期 {formatDate(data.cycle.start)} —{" "}
-            {formatDate(data.cycle.end)}
+            {t("overview.cycle", {
+              start: formatDate(data.cycle.start),
+              end: formatDate(data.cycle.end),
+            })}
           </p>
         </div>
         <span className={`status-pill risk-${statusRisk}`}>
-          账户{statusLabel}
+          {t("overview.accountStatus", { status: statusLabel })}
         </span>
       </div>
-      <div aria-label="风险摘要" className="summary-grid">
+      <div aria-label={t("overview.summaryLabel")} className="summary-grid">
         <SummaryCard
-          detail={`入账至 ${formatBillingThrough(data.cost.postedThrough)}`}
-          label="本期用量成本"
+          detail={t("overview.postedThrough", {
+            date: formatBillingThrough(data.cost.postedThrough),
+          })}
+          label={t("overview.currentCost")}
           value={formatCurrency(data.cost.totalCost, data.cost.currency)}
         />
         <SummaryCard
-          label="最近一日成本"
+          label={t("overview.recentCost")}
           value={formatCurrency(data.cost.recentCost, data.cost.currency)}
         />
         <SummaryCard
-          label="高风险产品"
+          label={t("overview.criticalProducts")}
           tone="critical"
           value={data.summary.critical}
         />
         <SummaryCard
-          label="需要关注"
+          label={t("overview.warningProducts")}
           tone="warning"
           value={data.summary.warning}
         />
       </div>
       <div className="section-heading">
         <div>
-          <p className="eyebrow">按风险排序</p>
-          <h2>产品额度</h2>
+          <p className="eyebrow">{t("overview.sortEyebrow")}</p>
+          <h2>{t("overview.productQuotas")}</h2>
         </div>
-        <p>产品状态由风险最高的计费指标决定</p>
+        <p>{t("overview.productStatusHint")}</p>
       </div>
       <FailurePanel failures={data.failures} />
       <div className="product-list">
@@ -116,3 +115,4 @@ function SummaryCard({
     </article>
   );
 }
+import { useTranslation } from "react-i18next";

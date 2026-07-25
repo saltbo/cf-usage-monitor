@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, Navigate, useParams, useSearchParams } from "react-router";
-import { PRODUCTS, PRODUCT_NAMES, type ProductName } from "../../metrics";
+import { useTranslation } from "react-i18next";
+import { PRODUCT_NAMES, type ProductName } from "../../metrics";
 import type { DashboardMetric } from "../../shared/dashboard";
 import { FailurePanel } from "../components/FailurePanel";
 import { InstancePanel } from "../components/InstancePanel";
@@ -10,9 +11,16 @@ import { TrendChart } from "../components/TrendChart";
 import { useDashboard } from "../data/dashboard-context";
 import { useProductDashboard } from "../data/use-product-dashboard";
 import { formatCompact, formatDate, formatPercent } from "../lib/format";
+import {
+  formatUnit,
+  metricLabel,
+  productLabel,
+} from "../lib/localization";
 import { metricSummary } from "../lib/risk";
+import i18n from "../i18n";
 
 export function ProductPage() {
+  const { t } = useTranslation();
   const { data } = useDashboard();
   const { instanceId, productName } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -24,10 +32,10 @@ export function ProductPage() {
     return <Navigate replace to="/" />;
   }
   if (!live.data) {
-    const definition = PRODUCTS[validProductName];
     return (
       <div className={live.error ? "issues-panel" : "loading-state"}>
-        {live.error ?? `正在加载 ${definition.label} 的实时趋势…`}
+        {live.error ??
+          t("product.loading", { product: productLabel(validProductName) })}
       </div>
     );
   }
@@ -48,7 +56,13 @@ export function ProductPage() {
       <div className="detail-heading">
         <div className="detail-heading-main">
           <Link
-            aria-label={instanceId ? `返回${product.label}详情` : "返回账户额度"}
+            aria-label={
+              instanceId
+                ? t("product.backToProduct", {
+                    product: productLabel(product.name),
+                  })
+                : t("product.backToOverview")
+            }
             className="detail-back"
             to={
               instanceId
@@ -63,10 +77,14 @@ export function ProductPage() {
               ? metric.contributors.find(
                   (item) => item.id === decodeURIComponent(instanceId),
                 )?.name ?? decodeURIComponent(instanceId)
-              : product.label}
+              : productLabel(product.name)}
           </h1>
         </div>
-        <div aria-label="计费指标" className="metric-tabs" role="tablist">
+        <div
+          aria-label={t("product.metricTabs")}
+          className="metric-tabs"
+          role="tablist"
+        >
           {product.metrics.map((item) => (
             <button
               aria-selected={item.metric === metric.metric}
@@ -80,7 +98,7 @@ export function ProductPage() {
               role="tab"
               type="button"
             >
-              <span>{item.label}</span>
+              <span>{metricLabel(item.metric)}</span>
             </button>
           ))}
         </div>
@@ -102,22 +120,24 @@ export function ProductPage() {
               <div className="detail-quota-heading">
                 <div>
                   <small id="risk-title">
-                    {product.label} · {metric.label}
+                    {productLabel(product.name)} · {metricLabel(metric.metric)}
                   </small>
                   <strong>{formatPercent(metric.usedRatio)}</strong>
                 </div>
                 <div className="detail-quota-meta">
                   <span className={forecastTone(metric)}>
-                    稳健预计 {formatPercent(metric.forecastProjectedRatio)}
+                    {t("product.steadyForecast", {
+                      value: formatPercent(metric.forecastProjectedRatio),
+                    })}
                   </span>
                   <b>
                     {formatCompact(metric.used)} / {formatCompact(metric.quota)}{" "}
-                    {metric.unit}
+                    {formatUnit(metric.unit)}
                   </b>
                 </div>
               </div>
               <div
-                aria-label="本期额度使用比例"
+                aria-label={t("product.quotaRatio")}
                 className="detail-quota-track"
                 role="progressbar"
               >
@@ -131,7 +151,7 @@ export function ProductPage() {
                 <span>
                   {metric.usedRatio > 1
                     ? formatPercent(quotaScale(metric) / 100)
-                    : "额度 100%"}
+                    : t("product.quota100")}
                 </span>
               </div>
               <p className="detail-quota-summary">{metricSummary(metric)}</p>
@@ -139,22 +159,35 @@ export function ProductPage() {
 
             <div className="trend-heading">
               <div>
-                <p className="eyebrow">增长速度</p>
-                <h3>{grain === "hourly" ? "每小时新增用量" : "每日新增用量"}</h3>
+                <p className="eyebrow">{t("product.growthEyebrow")}</p>
+                <h3>
+                  {t(
+                    grain === "hourly"
+                      ? "product.hourlyGrowth"
+                      : "product.dailyGrowth",
+                  )}
+                </h3>
                 <p>
                   {grain === "hourly"
-                    ? "当地时间今天 00:00—24:00；未来小时按近期用量预测"
-                    : `完整账单周期 ${formatDate(metric.periodStart)} — ${formatDate(metric.periodEnd)}`}
+                    ? t("product.hourlyPeriod")
+                    : t("product.billingPeriod", {
+                        start: formatDate(metric.periodStart),
+                        end: formatDate(metric.periodEnd),
+                      })}
                 </p>
               </div>
-              <div aria-label="趋势粒度" className="trend-tabs" role="tablist">
+              <div
+                aria-label={t("product.grainTabs")}
+                className="trend-tabs"
+                role="tablist"
+              >
                 <button
                   aria-selected={grain === "hourly"}
                   onClick={() => setGrain("hourly")}
                   role="tab"
                   type="button"
                 >
-                  小时
+                  {t("common.hour")}
                 </button>
                 <button
                   aria-selected={grain === "daily"}
@@ -162,7 +195,7 @@ export function ProductPage() {
                   role="tab"
                   type="button"
                 >
-                  天
+                  {t("common.day")}
                 </button>
               </div>
             </div>
@@ -192,20 +225,21 @@ export function ProductPage() {
 }
 
 function ChartLegend({ grain }: { grain: "hourly" | "daily" }) {
-  const unit = grain === "hourly" ? "小时" : "日";
+  const { t } = useTranslation();
+  const unit = t(grain === "hourly" ? "common.hour" : "common.day");
   const longWindow = 7;
   return (
-    <div aria-label="图例" className="chart-legend">
-      <span><i className="increment" />实际用量</span>
-      <span><i className="forecast-increment" />预测用量</span>
-      <span><i className="trend-short" />MA3 · 3{unit}短期均线</span>
-      <span><i className="trend-short-forecast" />MA3 预测</span>
+    <div aria-label={t("common.legend")} className="chart-legend">
+      <span><i className="increment" />{t("product.actualUsage")}</span>
+      <span><i className="forecast-increment" />{t("product.forecastUsage")}</span>
+      <span><i className="trend-short" />{t("product.shortAverage", { unit })}</span>
+      <span><i className="trend-short-forecast" />{t("product.maForecast", { window: 3 })}</span>
       <span>
         <i className="trend-long" />
-        MA{longWindow} · {longWindow}{unit}长期均线
+        {t("product.longAverage", { unit })}
       </span>
-      <span><i className="trend-long-forecast" />MA7 预测</span>
-      <span><i className="safe" />安全线</span>
+      <span><i className="trend-long-forecast" />{t("product.maForecast", { window: longWindow })}</span>
+      <span><i className="safe" />{t("product.safeLine")}</span>
     </div>
   );
 }
@@ -224,13 +258,26 @@ function quotaScale(metric: DashboardMetric): number {
 }
 
 function quotaBalance(metric: DashboardMetric): string {
+  const unit = formatUnit(metric.unit);
   if (metric.used > metric.quota) {
-    return `已超出 ${formatCompact(metric.used - metric.quota)} ${metric.unit} · ${formatPercent(metric.usedRatio - 1)}`;
+    return i18n.t("product.exceeded", {
+      amount: formatCompact(metric.used - metric.quota),
+      unit,
+      ratio: formatPercent(metric.usedRatio - 1),
+    });
   }
   if (metric.forecastProjectedUsage > metric.quota) {
-    return `稳健预计将超出 ${formatCompact(metric.forecastProjectedUsage - metric.quota)} ${metric.unit} · ${formatPercent(metric.forecastProjectedRatio - 1)}`;
+    return i18n.t("product.forecastExceeded", {
+      amount: formatCompact(metric.forecastProjectedUsage - metric.quota),
+      unit,
+      ratio: formatPercent(metric.forecastProjectedRatio - 1),
+    });
   }
-  return `剩余 ${formatCompact(metric.quota - metric.used)} ${metric.unit} · 稳健预计期末剩余 ${formatCompact(metric.quota - metric.forecastProjectedUsage)} ${metric.unit}`;
+  return i18n.t("product.remaining", {
+    amount: formatCompact(metric.quota - metric.used),
+    forecast: formatCompact(metric.quota - metric.forecastProjectedUsage),
+    unit,
+  });
 }
 
 function isProductName(value: string | undefined): value is ProductName {

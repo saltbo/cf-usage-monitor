@@ -1,4 +1,5 @@
 import type { OverviewMetric } from "../../shared/dashboard";
+import { useTranslation } from "react-i18next";
 import { formatPercent } from "../lib/format";
 
 export function QuotaMeter({
@@ -8,6 +9,7 @@ export function QuotaMeter({
   metric: OverviewMetric;
   showForecast?: boolean;
 }) {
+  const { i18n, t } = useTranslation();
   const usedPercent = Math.max(0, metric.usedRatio * 100);
   const scale = usedPercent <= 100
     ? 100
@@ -18,13 +20,15 @@ export function QuotaMeter({
     Math.max(0, metric.forecastProjectedRatio * 100),
   );
   const label = [
-    `当前使用 ${formatPercent(metric.usedRatio)}`,
+    t("quota.used", { value: formatPercent(metric.usedRatio) }),
     showForecast
-      ? `稳健预计 ${formatPercent(metric.forecastProjectedRatio)}`
+      ? t("quota.forecast", {
+          value: formatPercent(metric.forecastProjectedRatio),
+        })
       : null,
   ]
     .filter(Boolean)
-    .join("；");
+    .join(i18n.resolvedLanguage === "zh-CN" ? "；" : "; ");
 
   return (
     <span className="quota-meter">

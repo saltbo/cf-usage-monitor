@@ -1,14 +1,22 @@
 import { Link, Outlet } from "react-router";
+import { useTranslation } from "react-i18next";
 import { useDashboard } from "../data/dashboard-context";
+import type { SupportedLanguage } from "../i18n";
 import { relativeTime } from "../lib/format";
 
 export function AppShell() {
   const { data, refresh, refreshing } = useDashboard();
+  const { i18n, t } = useTranslation();
+  const language = i18n.resolvedLanguage === "zh-CN" ? "zh-CN" : "en";
+
+  function changeLanguage(next: SupportedLanguage) {
+    void i18n.changeLanguage(next);
+  }
 
   return (
     <>
       <a className="skip-link" href="#main">
-        跳到主要内容
+        {t("header.skip")}
       </a>
       <header className="site-header">
         <div className="header-inner">
@@ -19,19 +27,43 @@ export function AppShell() {
             </span>
             <span>
               <strong>CF Usage Monitor</strong>
-              <small>Quota &amp; burn rate</small>
+              <small>{t("header.tagline")}</small>
             </span>
           </Link>
           <div className="header-meta">
-            <span>账户 · {data?.accountName ?? "—"}</span>
-            <span>{data ? `更新于 ${relativeTime(data.lastUpdated)}` : "正在查询"}</span>
+            <span>{t("header.account", { name: data?.accountName ?? "—" })}</span>
+            <span>
+              {data
+                ? t("header.updated", { time: relativeTime(data.lastUpdated) })
+                : t("common.loading")}
+            </span>
+            <div
+              aria-label={t("language.label")}
+              className="language-switch"
+              role="group"
+            >
+              <button
+                aria-pressed={language === "zh-CN"}
+                onClick={() => changeLanguage("zh-CN")}
+                type="button"
+              >
+                中
+              </button>
+              <button
+                aria-pressed={language === "en"}
+                onClick={() => changeLanguage("en")}
+                type="button"
+              >
+                EN
+              </button>
+            </div>
             <button
               disabled={refreshing}
               id="refresh-button"
               onClick={() => void refresh()}
               type="button"
             >
-              {refreshing ? "查询中" : "刷新"}
+              {refreshing ? t("common.refreshing") : t("common.refresh")}
             </button>
           </div>
         </div>
@@ -39,8 +71,12 @@ export function AppShell() {
       <main className="page-shell" id="main">
         <Outlet />
         <footer>
-          <span>数据源 · {data?.source ?? "Cloudflare GraphQL Analytics"}</span>
-          <span>每 10 分钟复核 · 告警持续至风险解除</span>
+          <span>
+            {t("header.source", {
+              source: data?.source ?? "Cloudflare GraphQL Analytics",
+            })}
+          </span>
+          <span>{t("header.review")}</span>
         </footer>
       </main>
     </>

@@ -21,6 +21,7 @@ describe("ProductDataTabs", () => {
           cycleStart="2026-07-01T00:00:00.000Z"
           metric={{
             metric: "d1.rows_read",
+            unit: "rows",
             used: 0,
             periodEnd: "2026-08-01T00:00:00.000Z",
             contributors: [],

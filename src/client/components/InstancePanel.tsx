@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { ProductName } from "../../metrics";
 import type {
   DashboardMetric,
@@ -8,7 +9,10 @@ import { loadInstanceUsage } from "../data/api";
 import {
   formatCompact,
   formatPercent,
+  formatRatio,
 } from "../lib/format";
+import { formatUnit, metricLabel } from "../lib/localization";
+import i18n from "../i18n";
 import { TrendChart } from "./TrendChart";
 
 export function InstancePanel({
@@ -19,6 +23,7 @@ export function InstancePanel({
   metric: DashboardMetric;
   productName: ProductName;
 }) {
+  const { t } = useTranslation();
   const [grain, setGrain] = useState<"hourly" | "daily">("hourly");
   const [trends, setTrends] = useState<InstanceUsageTrends | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +46,7 @@ export function InstancePanel({
         setError(
           requestError instanceof Error
             ? requestError.message
-            : "实例趋势查询失败",
+            : i18n.t("instance.requestError"),
         );
       });
     return () => controller.abort();
@@ -72,13 +77,15 @@ export function InstancePanel({
       <div className="instance-heading">
         <div className="instance-heading-main">
           <div>
-            <p className="eyebrow">实例用量趋势</p>
-            <h2 id="instance-title">{metric.label}趋势</h2>
+            <p className="eyebrow">{t("instance.eyebrow")}</p>
+            <h2 id="instance-title">
+              {t("instance.title", { metric: metricLabel(metric.metric) })}
+            </h2>
             <code>{instanceId}</code>
           </div>
         </div>
         <div
-          aria-label="实例趋势粒度"
+          aria-label={t("instance.grainTabs")}
           className="trend-tabs"
           role="tablist"
         >
@@ -88,7 +95,7 @@ export function InstancePanel({
             role="tab"
             type="button"
           >
-            小时
+            {t("common.hour")}
           </button>
           <button
             aria-selected={grain === "daily"}
@@ -96,26 +103,26 @@ export function InstancePanel({
             role="tab"
             type="button"
           >
-            天
+            {t("common.day")}
           </button>
         </div>
       </div>
 
-      <div aria-label="实例用量摘要" className="instance-summary">
+      <div aria-label={t("instance.summary")} className="instance-summary">
         <span>
-          <small>本期用量</small>
+          <small>{t("instance.currentUsage")}</small>
           <strong>
-            {formatCompact(contributor?.value ?? 0)} {metric.unit}
+            {formatCompact(contributor?.value ?? 0)} {formatUnit(metric.unit)}
           </strong>
         </span>
         <span>
-          <small>最近 1 小时</small>
+          <small>{t("instance.recentHour")}</small>
           <strong>
-            {formatCompact(recent?.value ?? 0)} {metric.unit}
+            {formatCompact(recent?.value ?? 0)} {formatUnit(metric.unit)}
           </strong>
         </span>
         <span>
-          <small>占产品用量</small>
+          <small>{t("instance.share")}</small>
           <strong>
             {formatPercent(
               metric.used === 0 ? 0 : (contributor?.value ?? 0) / metric.used,
@@ -132,25 +139,29 @@ export function InstancePanel({
           safe={safe}
         />
       ) : null}
-      <div aria-label="实例趋势图例" className="chart-legend">
-        <span><i className="increment" />实际用量</span>
-        <span><i className="forecast-increment" />预测用量</span>
+      <div aria-label={t("instance.legend")} className="chart-legend">
+        <span><i className="increment" />{t("product.actualUsage")}</span>
+        <span><i className="forecast-increment" />{t("product.forecastUsage")}</span>
         <span>
           <i className="trend-short" />
-          MA3 · 3{grain === "hourly" ? "小时" : "日"}短期均线
+          {t("product.shortAverage", {
+            unit: t(grain === "hourly" ? "common.hour" : "common.day"),
+          })}
         </span>
-        <span><i className="trend-short-forecast" />MA3 预测</span>
+        <span><i className="trend-short-forecast" />{t("product.maForecast", { window: 3 })}</span>
         <span>
           <i className="trend-long" />
-          MA7 · 7{grain === "hourly" ? "小时" : "日"}长期均线
+          {t("product.longAverage", {
+            unit: t(grain === "hourly" ? "common.hour" : "common.day"),
+          })}
         </span>
-        <span><i className="trend-long-forecast" />MA7 预测</span>
-        <span><i className="safe" />产品安全线</span>
+        <span><i className="trend-long-forecast" />{t("product.maForecast", { window: 7 })}</span>
+        <span><i className="safe" />{t("instance.productSafeLine")}</span>
       </div>
       {error ? <div className="empty-row">{error}</div> : null}
       {!error && !trends ? (
         <div className="instance-chart-loading">
-          正在查询这个实例的真实用量趋势…
+          {t("instance.loading")}
         </div>
       ) : null}
       {trends ? (
@@ -179,25 +190,33 @@ function InstanceBenchmark({
   peak: number;
   safe: number;
 }) {
+  const { t } = useTranslation();
   const maximum = Math.max(peak, safe, 1) * 1.08;
   const ratio = safe === 0 ? null : peak / safe;
+  const unit = formatUnit(metric.unit);
   return (
     <div
-      aria-label="实例峰值与产品安全线对比"
+      aria-label={t("instance.benchmark")}
       className="instance-benchmark"
     >
       <div className="instance-benchmark-copy">
         <span>
-          实例峰值 <b>{formatCompact(peak)} {metric.unit}</b>
+          {t("instance.peak", {
+            value: formatCompact(peak),
+            unit,
+          })}
         </span>
         <span>
-          {grain === "hourly" ? "每小时" : "每日"}安全线{" "}
-          <b>{formatCompact(safe)} {metric.unit}</b>
+          {t("instance.slotSafe", {
+            period: t(grain === "hourly" ? "common.hourly" : "common.daily"),
+            value: formatCompact(safe),
+            unit,
+          })}
         </span>
       </div>
       <span className="quota-meter">
         <progress
-          aria-label="实例峰值与安全线对比"
+          aria-label={t("instance.benchmark")}
           className={`quota-progress ${peak > safe ? "critical" : ""}`}
           max={maximum}
           value={peak}
@@ -219,10 +238,10 @@ function InstanceBenchmark({
       </span>
       <p className="instance-benchmark-result">
         {ratio === null
-          ? "当前没有可用的安全线"
+          ? t("instance.noSafeLine")
           : ratio >= 1
-            ? `峰值超过安全线 ${formatRatio(ratio)}`
-            : `峰值达到安全线的 ${formatPercent(ratio)}`}
+            ? t("instance.peakExceeded", { ratio: formatRatio(ratio) })
+            : t("instance.peakRatio", { ratio: formatPercent(ratio) })}
       </p>
     </div>
   );
@@ -240,10 +259,4 @@ function instanceSafePerSlot(
     return metric.quota;
   }
   return metric.quota * (grain === "hourly" ? 1 : 24) / periodHours;
-}
-
-function formatRatio(value: number): string {
-  return `${new Intl.NumberFormat("zh-CN", {
-    maximumFractionDigits: 1,
-  }).format(value)}×`;
 }

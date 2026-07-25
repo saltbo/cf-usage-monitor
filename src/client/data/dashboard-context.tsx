@@ -11,6 +11,7 @@ import {
 import { useLocation } from "react-router";
 import type { OverviewData } from "../../shared/dashboard";
 import { loadOverview } from "./api";
+import i18n from "../i18n";
 
 interface DashboardContextValue {
   data: OverviewData | null;
@@ -46,7 +47,9 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         return;
       }
       setError(
-        requestError instanceof Error ? requestError.message : "用量查询失败",
+        requestError instanceof Error
+          ? requestError.message
+          : i18n.t("errors.usage"),
       );
     } finally {
       if (activeRequest.current === controller) {

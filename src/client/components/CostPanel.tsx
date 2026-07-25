@@ -1,9 +1,11 @@
 import type { ProductCostData } from "../../shared/dashboard";
+import { useTranslation } from "react-i18next";
 import {
   formatBillingThrough,
   formatCompact,
   formatCurrency,
 } from "../lib/format";
+import { formatUnit } from "../lib/localization";
 import { CostChart } from "./CostChart";
 
 export function CostPanel({
@@ -15,26 +17,29 @@ export function CostPanel({
   cycleEnd: string;
   cycleStart: string;
 }) {
+  const { t } = useTranslation();
   return (
     <section aria-labelledby="cost-title" className="cost-panel">
       <div className="section-heading cost-heading">
         <div>
-          <p className="eyebrow">Cloudflare 已入账</p>
-          <h2 id="cost-title">实际用量成本</h2>
+          <p className="eyebrow">{t("cost.eyebrow")}</p>
+          <h2 id="cost-title">{t("cost.title")}</h2>
         </div>
-        <p>仅包含 usage-based 费用，不含固定套餐、税费和未出账费用</p>
+        <p>{t("cost.disclaimer")}</p>
       </div>
-      <div aria-label="成本摘要" className="cost-summary">
+      <div aria-label={t("cost.summary")} className="cost-summary">
         <CostStat
-          label="本期实际费用"
+          label={t("cost.current")}
           value={formatCurrency(cost.totalCost, cost.currency)}
         />
         <CostStat
-          detail={`账单日 ${formatBillingThrough(cost.postedThrough)}`}
-          label="最近一日费用"
+          detail={t("cost.billingDate", {
+            date: formatBillingThrough(cost.postedThrough),
+          })}
+          label={t("cost.recent")}
           value={formatCurrency(cost.recentCost, cost.currency)}
         />
-        <CostStat label="计费项" value={String(cost.lineItems.length)} />
+        <CostStat label={t("cost.items")} value={String(cost.lineItems.length)} />
       </div>
       {cost.totalCost > 0 ? (
         <CostChart
@@ -45,16 +50,16 @@ export function CostPanel({
           postedThrough={cost.postedThrough}
         />
       ) : (
-        <div className="cost-empty">本计费周期尚未产生用量费用</div>
+        <div className="cost-empty">{t("cost.empty")}</div>
       )}
       <div className="cost-table-wrap">
         <table>
           <thead>
             <tr>
-              <th>计费项</th>
-              <th>总用量</th>
-              <th>计费用量</th>
-              <th>本期费用</th>
+              <th>{t("cost.items")}</th>
+              <th>{t("cost.totalUsage")}</th>
+              <th>{t("cost.billedUsage")}</th>
+              <th>{t("cost.currentCost")}</th>
             </tr>
           </thead>
           <tbody>
@@ -63,11 +68,11 @@ export function CostPanel({
                 <td>{item.serviceName}</td>
                 <td>
                   {formatCompact(item.consumedQuantity)}{" "}
-                  {item.consumedUnit}
+                  {formatUnit(item.consumedUnit)}
                 </td>
                 <td>
                   {formatCompact(item.pricingQuantity)}{" "}
-                  {item.consumedUnit}
+                  {formatUnit(item.consumedUnit)}
                 </td>
                 <td>
                   <strong>

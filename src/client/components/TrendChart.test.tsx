@@ -35,7 +35,7 @@ describe("TrendChart", () => {
       localZoneName ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
     );
     expect(container.querySelector(".chart-active-point")).toHaveTextContent(
-      "20 requests",
+      "20 次请求",
     );
 
     fireEvent.focus(svg);
@@ -198,10 +198,10 @@ describe("TrendChart", () => {
 
     fireEvent.focus(svg);
     expect(container.querySelector(".chart-active-point")).toHaveTextContent(
-      "MA3 · 12 requests",
+      "MA3 · 12 次请求",
     );
     expect(container.querySelector(".chart-active-point")).toHaveTextContent(
-      "MA7 · 10 requests",
+      "MA7 · 10 次请求",
     );
   });
 
@@ -237,8 +237,8 @@ describe("TrendChart", () => {
     )].map((title) => title.textContent);
 
     expect(futureTitles).toHaveLength(5);
-    expect(futureTitles[0]).toContain("预测 28 requests");
-    expect(futureTitles[1]).toContain("预测 30.6 requests");
+    expect(futureTitles[0]).toContain("预测 28 次请求");
+    expect(futureTitles[1]).toContain("预测 30.6 次请求");
     expect(futureTitles.join(" ")).not.toContain("1000");
   });
 
@@ -277,7 +277,7 @@ describe("TrendChart", () => {
     )].map((title) => title.textContent);
 
     expect(hourlyTitles).toHaveLength(5);
-    expect(hourlyTitles.every((title) => title?.includes("预测 0.2 GB-month")))
+    expect(hourlyTitles.every((title) => title?.includes("预测 0.2 GB·月")))
       .toBe(true);
     hourlyChart.unmount();
 
@@ -294,7 +294,7 @@ describe("TrendChart", () => {
     )].map((title) => title.textContent);
 
     expect(dailyTitles).toHaveLength(5);
-    expect(dailyTitles[0]).toContain("预测 4.7 GB-month");
+    expect(dailyTitles[0]).toContain("预测 4.7 GB·月");
     expect(dailyTitles.join(" ")).not.toContain("12");
   });
 
@@ -324,21 +324,21 @@ describe("TrendChart", () => {
 
     fireEvent.pointerMove(svg, { clientX: 65 });
     expect(container.querySelector(".chart-active-point")).toHaveTextContent(
-      "MA3 · 10 requests",
+      "MA3 · 10 次请求",
     );
     expect(container.querySelector(".chart-active-point")).toHaveTextContent(
-      "MA7 · 10 requests",
+      "MA7 · 10 次请求",
     );
 
     fireEvent.pointerMove(svg, { clientX: 538 });
     expect(container.querySelector(".chart-active-point")).toHaveTextContent(
-      "预测 · 25 requests",
+      "预测 · 25 次请求",
     );
     expect(container.querySelector(".chart-active-point")).toHaveTextContent(
-      "MA3预测 · 18.33 requests",
+      "MA3 预测 · 18.33 次请求",
     );
     expect(container.querySelector(".chart-active-point")).toHaveTextContent(
-      "MA7预测 · 13.57 requests",
+      "MA7 预测 · 13.57 次请求",
     );
   });
 });

@@ -1,8 +1,10 @@
 import type { CSSProperties } from "react";
 import { Link } from "react-router";
+import { useTranslation } from "react-i18next";
 import type { DashboardMetric } from "../../shared/dashboard";
 import type { ProductName } from "../../metrics";
 import { formatCompact, formatPercent, shortId } from "../lib/format";
+import { formatUnit } from "../lib/localization";
 
 export function ContributorTable({
   metric,
@@ -11,6 +13,8 @@ export function ContributorTable({
   metric: DashboardMetric;
   productName: ProductName;
 }) {
+  const { t } = useTranslation();
+  const unit = formatUnit(metric.unit);
   const recent = new Map(
     metric.recentContributors.map((contributor) => [
       contributor.id,
@@ -27,18 +31,18 @@ export function ContributorTable({
       <table>
         <thead>
           <tr>
-            <th>实例</th>
-            <th>本期用量</th>
-            <th>占比</th>
-            <th>最近一小时</th>
-            <th>简单期末预测</th>
+            <th>{t("contributors.instance")}</th>
+            <th>{t("contributors.currentUsage")}</th>
+            <th>{t("contributors.share")}</th>
+            <th>{t("contributors.recentHour")}</th>
+            <th>{t("contributors.forecast")}</th>
           </tr>
         </thead>
         <tbody>
           {metric.contributors.length === 0 ? (
             <tr>
               <td className="empty-row" colSpan={5}>
-                当前周期没有实例用量
+                {t("contributors.empty")}
               </td>
             </tr>
           ) : (
@@ -60,7 +64,7 @@ export function ContributorTable({
                       <small>{shortId(contributor.id)}</small>
                     </Link>
                   </td>
-                  <td>{formatCompact(contributor.value)}</td>
+                  <td>{formatCompact(contributor.value)} {unit}</td>
                   <td>
                     <span className="instance-share">
                       <i
@@ -71,8 +75,8 @@ export function ContributorTable({
                       {formatPercent(share)}
                     </span>
                   </td>
-                  <td>{formatCompact(recentValue)}</td>
-                  <td>{formatCompact(projected)}</td>
+                  <td>{formatCompact(recentValue)} {unit}</td>
+                  <td>{formatCompact(projected)} {unit}</td>
                 </tr>
               );
             })

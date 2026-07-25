@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { ProductName } from "../../metrics";
 import type {
   DashboardMetric,
@@ -22,26 +23,27 @@ export function ProductDataTabs({
   metric: DashboardMetric;
   productName: ProductName;
 }) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] =
     useState<ProductDataTab>("contributors");
 
   return (
     <section className="product-data-section">
       <div
-        aria-label="产品数据详情"
+        aria-label={t("tabs.label")}
         className="product-data-tabs"
         role="tablist"
       >
         <Tab
           activeTab={activeTab}
           id="contributors"
-          label="实例归因"
+          label={t("tabs.contributors")}
           onSelect={setActiveTab}
         />
         <Tab
           activeTab={activeTab}
           id="cost"
-          label="成本明细"
+          label={t("tabs.cost")}
           onSelect={setActiveTab}
         />
       </div>
@@ -64,10 +66,10 @@ export function ProductDataTabs({
           >
             <div className="section-heading">
               <div>
-                <p className="eyebrow">实例归因</p>
-                <h2 id="contributors-title">谁消耗得最多？</h2>
+                <p className="eyebrow">{t("contributors.eyebrow")}</p>
+                <h2 id="contributors-title">{t("contributors.title")}</h2>
               </div>
-              <p>按当前计费周期用量排序</p>
+              <p>{t("contributors.hint")}</p>
             </div>
             <ContributorTable metric={metric} productName={productName} />
           </section>

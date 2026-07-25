@@ -1,14 +1,16 @@
 import type { DashboardData } from "../../shared/dashboard";
+import { useTranslation } from "react-i18next";
 
 export function FailurePanel({
   failures,
 }: {
   failures: DashboardData["failures"];
 }) {
+  const { t } = useTranslation();
   if (failures.length === 0) return null;
   return (
     <section className="failure-panel">
-      <strong>部分数据查询失败</strong>
+      <strong>{t("errors.partial")}</strong>
       <ul>
         {failures.map((failure) => (
           <li key={failure.collector}>

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { ProductName } from "../../metrics";
 import type { ProductDashboardData } from "../../shared/dashboard";
 import { loadProduct } from "./api";
+import i18n from "../i18n";
 
 export function useProductDashboard(
   productName: ProductName | null,
@@ -31,7 +32,7 @@ export function useProductDashboard(
         setError(
           requestError instanceof Error
             ? requestError.message
-            : "产品详情查询失败",
+            : i18n.t("errors.product"),
         );
       });
     return () => controller.abort();

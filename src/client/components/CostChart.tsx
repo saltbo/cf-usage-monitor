@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { CostPoint } from "../../shared/dashboard";
 import {
   formatBillingThrough,
@@ -31,6 +32,7 @@ export function CostChart({
   daily: CostPoint[];
   postedThrough: string;
 }) {
+  const { t } = useTranslation();
   const svgRef = useRef<SVGSVGElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
@@ -96,10 +98,12 @@ export function CostChart({
 
   return (
     <div className="cost-chart">
-      <span className="cost-chart-timezone">账单日 · UTC</span>
+      <span className="cost-chart-timezone">{t("cost.billingDayUtc")}</span>
       <div className="cost-chart-scroll" ref={scrollRef}>
         <svg
-          aria-label={`本计费周期每日实际成本，已入账至 ${formatBillingThrough(postedThrough)}`}
+          aria-label={t("cost.chartLabel", {
+            date: formatBillingThrough(postedThrough),
+          })}
           onBlur={() => setActiveIndex(null)}
           onFocus={() => setActiveIndex(latestPostedIndex)}
           onKeyDown={(event) => {
@@ -188,7 +192,7 @@ export function CostChart({
               </text>
               <text className="cost-tooltip-value" x={12} y={40}>
                 {active.cost === null
-                  ? "尚未入账"
+                  ? t("cost.notPosted")
                   : formatCurrency(active.cost, currency)}
               </text>
             </g>

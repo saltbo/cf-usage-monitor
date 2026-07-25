@@ -5,6 +5,7 @@
 ## 技术架构
 
 - Vite + React + React Router：仪表盘、产品详情和实例钻取。
+- i18next + react-i18next：中英文界面、浏览器语言识别、语言偏好持久化以及日期、数字、货币和计量单位本地化。
 - Hono：Worker HTTP 中间件、API 路由、认证和错误边界。
 - Cloudflare Workers Static Assets：发布 Vite 构建产物并支持 SPA fallback。
 - Cloudflare Cron Triggers：每 10 分钟运行账户采集和风险检测。
