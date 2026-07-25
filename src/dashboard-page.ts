@@ -60,7 +60,7 @@ export const DASHBOARD_HTML = `<!doctype html>
         <div id="metric-tabs" class="metric-tabs" role="tablist" aria-label="计费指标"></div>
       </div>
 
-      <section class="risk-panel" aria-labelledby="risk-title">
+      <section id="risk-panel" class="risk-panel" aria-labelledby="risk-title">
         <div class="detail-quota" aria-label="额度使用进度">
           <div class="detail-quota-heading">
             <div><small id="risk-title">额度使用进度</small><strong id="detail-quota-percent">—</strong></div>
@@ -98,7 +98,36 @@ export const DASHBOARD_HTML = `<!doctype html>
         <div id="quota-chart" class="quota-chart" role="img"></div>
       </section>
 
-      <section class="contributors-section" aria-labelledby="contributors-title">
+      <section id="instance-panel" class="instance-panel" aria-labelledby="instance-title" hidden>
+        <div class="instance-heading">
+          <div class="instance-heading-main">
+            <div>
+              <p class="eyebrow">实例用量趋势</p>
+              <h2 id="instance-title">—</h2>
+              <code id="instance-id">—</code>
+            </div>
+          </div>
+          <div id="instance-grain-tabs" class="trend-tabs" role="tablist" aria-label="实例趋势粒度">
+            <button type="button" role="tab" data-instance-grain="hourly" aria-selected="true">小时</button>
+            <button type="button" role="tab" data-instance-grain="daily" aria-selected="false">天</button>
+          </div>
+        </div>
+        <div class="instance-summary" aria-label="实例用量摘要">
+          <span><small>本期用量</small><strong id="instance-used">—</strong></span>
+          <span><small>最近 1 小时</small><strong id="instance-recent">—</strong></span>
+          <span><small>占产品用量</small><strong id="instance-share">—</strong></span>
+        </div>
+        <div id="instance-benchmark" class="instance-benchmark" aria-label="实例峰值与产品安全线对比"></div>
+        <div class="chart-legend" aria-label="实例趋势图例">
+          <span><i class="increment"></i>实际用量</span>
+          <span><i class="trend-line"></i>移动平均</span>
+          <span><i class="safe"></i>产品安全线</span>
+          <span><i class="instance-risk"></i>超出安全线</span>
+        </div>
+        <div id="instance-chart" class="instance-chart" role="img"></div>
+      </section>
+
+      <section id="contributors-section" class="contributors-section" aria-labelledby="contributors-title">
         <div class="section-heading">
           <div><p class="eyebrow">实例归因</p><h2 id="contributors-title">谁消耗得最多？</h2></div>
           <p>按当前计费周期用量排序</p>
@@ -235,11 +264,29 @@ h1,h2,p{margin-top:0}.page-heading h1{margin-bottom:7px;font-size:clamp(25px,4vw
 .chart-legend .forecast-line{border-color:var(--amber);border-style:dashed}
 .chart-legend .forecast-risk{border-color:var(--red);border-style:dashed}
 .chart-legend .safe{border-color:var(--blue);border-style:dashed}
+.chart-legend .instance-risk{height:8px;border:0;background:var(--red)}
 .quota-chart{min-height:340px}.quota-chart svg{width:100%;height:auto;display:block}.contributors-section{margin-top:24px}
+.instance-panel{padding:20px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.instance-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:20px}
+.instance-heading-main{min-width:0}.instance-heading h2{margin:0 0 5px;font-size:20px}
+.instance-heading code{display:block;max-width:min(620px,70vw);overflow:hidden;color:var(--muted);font-size:10px;text-overflow:ellipsis;white-space:nowrap}
+.instance-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin-top:18px;overflow:hidden;
+  background:var(--line);border:1px solid var(--line);border-radius:7px}
+.instance-summary span{padding:13px 15px;background:var(--surface-2)}.instance-summary small{display:block;margin-bottom:7px;color:var(--muted);font-size:10px}
+.instance-summary strong{display:block;font:750 17px ui-monospace,monospace}
+.instance-benchmark{margin-top:16px;padding:12px 14px;background:var(--canvas);border:1px solid var(--line);border-radius:7px}
+.instance-benchmark-copy{display:flex;justify-content:space-between;gap:18px;color:var(--muted);font-size:11px}
+.instance-benchmark-copy b{margin-left:5px;color:var(--text);font:750 12px ui-monospace,monospace}
+.instance-benchmark .quota-meter{height:10px;margin-top:9px}
+.instance-benchmark-result{margin:7px 0 0;color:var(--muted);font-size:11px}.instance-benchmark-result strong{color:var(--text)}
+.instance-chart{min-height:320px}.instance-chart svg{width:100%;height:auto;display:block}
+.instance-chart-loading{min-height:280px;display:grid;place-items:center;color:var(--muted);font-size:12px}
 .contributors-table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
 table{width:100%;border-collapse:collapse;min-width:760px}th,td{padding:14px 15px;text-align:right;border-bottom:1px solid var(--line);font-size:12px}
 th{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em}th:first-child,td:first-child{text-align:left}
-tbody tr:last-child td{border-bottom:0}.instance-name strong{display:block;font-size:13px}.instance-name small{display:block;margin-top:4px;color:var(--muted);font:10px ui-monospace,monospace}
+tbody tr:last-child td{border-bottom:0}.instance-link{max-width:100%;padding:0;display:block;color:inherit;text-align:left;
+  background:transparent;border:0;cursor:pointer}.instance-link:hover strong{color:var(--teal)}
+.instance-name strong{display:block;font-size:13px}.instance-name small{display:block;margin-top:4px;color:var(--muted);font:10px ui-monospace,monospace}
 .instance-share{display:inline-flex;align-items:center;gap:8px}.instance-share i{width:54px;height:5px;background:#202c3d;border-radius:9px;overflow:hidden}
 .instance-share i:after{content:"";display:block;width:var(--share);height:100%;background:var(--teal)}
 .empty-row{text-align:center!important;color:var(--subtle);padding:30px!important}.issues-panel{margin-top:18px;padding:16px 18px;
@@ -257,6 +304,8 @@ tbody tr:last-child td{border-bottom:0}.instance-name strong{display:block;font-
   .metric-tabs{justify-content:flex-start}
   .detail-quota-heading{align-items:flex-start;display:block}.detail-quota-meta{margin-top:12px;text-align:left}
   .detail-quota-foot{grid-template-columns:auto auto;justify-content:space-between}.detail-quota-foot strong{grid-column:1/-1;grid-row:2;text-align:left}
+  .instance-panel{padding:14px}.instance-heading{align-items:flex-start}.instance-summary{grid-template-columns:1fr}
+  .instance-benchmark-copy{display:grid;gap:5px}
   .trend-heading{align-items:flex-start}.quota-chart{min-height:300px}.brand small{display:none}footer{display:grid}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}`;
 
@@ -264,25 +313,32 @@ export const DASHBOARD_JS = `(() => {
   'use strict';
   const riskLabel={normal:'正常',warning:'需关注',critical:'高风险',exceeded:'已超额'};
   const riskOrder={exceeded:3,critical:2,warning:1,normal:0};
-  let data=null,selectedMetric=null,selectedGrain='hourly',toastTimer=null;
+  let data=null,selectedMetric=null,selectedGrain='hourly',instanceGrain='hourly',toastTimer=null;
+  const instanceCache=new Map(),instanceRequests=new Set();
   const $=(id)=>document.getElementById(id);
   const els={loading:$('loading'),overview:$('overview'),detail:$('detail'),account:$('account-name'),
     updated:$('last-updated'),refresh:$('refresh-button'),cycle:$('cycle-copy'),status:$('account-status'),
     critical:$('critical-count'),warning:$('warning-count'),products:$('product-count'),list:$('product-list'),
-    detailTitle:$('detail-title'),tabs:$('metric-tabs'),riskTitle:$('risk-title'),riskSummary:$('risk-summary'),
+    detailTitle:$('detail-title'),detailBack:document.querySelector('.detail-back'),tabs:$('metric-tabs'),
+    riskTitle:$('risk-title'),riskSummary:$('risk-summary'),
     chart:$('quota-chart'),contributors:$('contributors-body'),issues:$('issues-panel'),
     issueList:$('issues-list'),source:$('source-label'),toast:$('toast'),trendTabs:$('trend-tabs'),
     trendTitle:$('trend-title'),trendSubtitle:$('trend-subtitle'),safeLabel:$('safe-label'),
     quotaPercent:$('detail-quota-percent'),quotaForecast:$('detail-quota-forecast'),
     quotaValues:$('detail-quota-values'),quotaTrack:$('detail-quota-track'),
-    quotaBalance:$('detail-quota-balance'),quotaScale:$('detail-quota-scale')};
+    quotaBalance:$('detail-quota-balance'),quotaScale:$('detail-quota-scale'),
+    riskPanel:$('risk-panel'),contributorsSection:$('contributors-section'),
+    instancePanel:$('instance-panel'),instanceTitle:$('instance-title'),instanceId:$('instance-id'),
+    instanceUsed:$('instance-used'),instanceRecent:$('instance-recent'),instanceShare:$('instance-share'),
+    instanceBenchmark:$('instance-benchmark'),instanceChart:$('instance-chart'),
+    instanceGrainTabs:$('instance-grain-tabs')};
 
   async function load(confirm){
     els.refresh.disabled=true;
     try{
       const response=await fetch('/api/usage',{credentials:'same-origin',headers:{Accept:'application/json'}});
       if(!response.ok)throw new Error('用量查询失败：HTTP '+response.status);
-      data=await response.json();render();if(confirm)showToast('已查询最新 Cloudflare 用量');
+      data=await response.json();instanceCache.clear();render();if(confirm)showToast('已查询最新 Cloudflare 用量');
     }catch(error){showToast(error instanceof Error?error.message:'用量查询失败');}
     finally{els.refresh.disabled=false;els.loading.hidden=true}
   }
@@ -326,7 +382,6 @@ export const DASHBOARD_JS = `(() => {
 
   function renderDetail(product){
     els.overview.hidden=true;els.detail.hidden=false;
-    els.detailTitle.textContent=product.label;
     const requested=new URL(location.href).searchParams.get('metric');
     if(!selectedMetric||!product.metrics.some((metric)=>metric.metric===selectedMetric)){
       selectedMetric=product.metrics.some((metric)=>metric.metric===requested)?requested:product.topMetric;
@@ -339,11 +394,152 @@ export const DASHBOARD_JS = `(() => {
   }
 
   function renderMetric(product,metric){
+    const requestedInstance=currentInstance();
+    const contributor=requestedInstance?product.metrics.flatMap((item)=>item.contributors).
+      find((item)=>item.id===requestedInstance):null;
+    if(contributor){renderInstanceMetric(product,metric,contributor);return}
+    els.detailTitle.textContent=product.label;
+    els.detailBack.setAttribute('href','/');
+    els.detailBack.setAttribute('aria-label','返回账户额度');
+    els.instancePanel.hidden=true;els.riskPanel.hidden=false;els.contributorsSection.hidden=false;
     els.riskTitle.textContent=product.label+' · '+metric.label;
     els.riskSummary.textContent=summaryText(metric);
     renderQuotaProgress(metric);
     renderChart(metric);renderContributors(metric);
   }
+
+  function renderInstanceMetric(product,metric,contributor){
+    els.riskPanel.hidden=true;els.contributorsSection.hidden=true;els.instancePanel.hidden=false;
+    els.detailTitle.textContent=contributor.name;
+    els.detailBack.setAttribute('href','/usage/'+encodeURIComponent(product.name)+'?metric='+encodeURIComponent(metric.metric));
+    els.detailBack.setAttribute('aria-label','返回'+product.label+'详情');
+    els.instanceTitle.textContent=metric.label+'趋势';
+    els.instanceId.textContent=contributor.id;
+    const metricContributor=metric.contributors.find((item)=>item.id===contributor.id);
+    const used=metricContributor?.value||0;
+    els.instanceUsed.textContent=formatCompact(used)+' '+metric.unit;
+    const recent=metric.recentContributors.find((item)=>item.id===contributor.id)?.value||0;
+    els.instanceRecent.textContent=formatCompact(recent)+' '+metric.unit;
+    els.instanceShare.textContent=formatPercent(metric.used===0?0:used/metric.used);
+    [...els.instanceGrainTabs.querySelectorAll('[data-instance-grain]')].forEach((tab)=>
+      tab.setAttribute('aria-selected',String(tab.dataset.instanceGrain===instanceGrain)));
+    const key=metric.metric+'|'+contributor.id,cached=instanceCache.get(key);
+    if(cached){renderInstanceChart(metric,contributor,cached);return}
+    els.instanceChart.innerHTML='<div class="instance-chart-loading">正在查询这个实例的真实用量趋势…</div>';
+    els.instanceChart.setAttribute('aria-label',contributor.name+'实例趋势正在加载');
+    loadInstanceTrend(product,metric,contributor,key);
+  }
+
+  async function loadInstanceTrend(product,metric,contributor,key){
+    if(instanceRequests.has(key))return;
+    instanceRequests.add(key);
+    try{
+      const params=new URLSearchParams({metric:metric.metric,instance:contributor.id});
+      const response=await fetch('/api/instance-usage?'+params,{credentials:'same-origin',headers:{Accept:'application/json'}});
+      if(!response.ok)throw new Error('实例趋势查询失败：HTTP '+response.status);
+      instanceCache.set(key,await response.json());
+      const current=currentInstance();
+      if(current===contributor.id&&selectedMetric===metric.metric)renderInstanceMetric(product,metric,contributor);
+    }catch(error){
+      const current=currentInstance();
+      if(current===contributor.id){
+        els.instanceChart.innerHTML='<div class="empty-row">'+escapeHtml(error instanceof Error?error.message:'实例趋势查询失败')+'</div>';
+      }
+    }finally{instanceRequests.delete(key)}
+  }
+
+  function renderInstanceChart(metric,contributor,trends){
+    const hourly=instanceGrain==='hourly',source=hourly?trends.hourly:trends.daily;
+    const slots=instanceSlots(source,trends.measuredAt,hourly);
+    const peak=slots.reduce((best,item)=>item.value>best.value?item:best,{timestamp:'',value:0});
+    const safe=instanceSafePerSlot(metric,hourly);
+    renderInstanceBenchmark(metric,peak.value,safe,hourly);
+    if(slots.length===0||slots.every((item)=>item.value===0)){
+      els.instanceChart.innerHTML='<div class="empty-row">Cloudflare 暂无这个实例的趋势数据</div>';
+      els.instanceChart.setAttribute('aria-label',contributor.name+'暂无实例趋势数据；产品安全线 '+
+        formatCompact(safe)+' '+metric.unit);return
+    }
+    const moving=movingValueAverage(slots,hourly?6:3),width=1040,height=330,m={left:72,right:34};
+    const innerW=width-m.left-m.right,top=24,chartH=244,bottomY=height-20;
+    const observedMaximum=Math.max(...slots.map((item)=>item.value),...moving.map((item)=>item.value),1);
+    const showSafeInPlot=safe<=peak.value*2;
+    const maximum=Math.max(observedMaximum,showSafeInPlot?safe:0)*1.12;
+    const step=innerW/slots.length,barWidth=Math.max(3,step*.62);
+    const x=(index)=>m.left+step*index+step/2,y=(value)=>top+chartH-(value/maximum)*chartH;
+    let svg='<svg viewBox="0 0 '+width+' '+height+'" aria-hidden="true">';
+    [0,.25,.5,.75,1].forEach((part)=>{const value=maximum*part,py=y(value);svg+='<line x1="'+m.left+'" y1="'+py+
+      '" x2="'+(width-m.right)+'" y2="'+py+'" stroke="#243144"/><text x="'+(m.left-10)+'" y="'+(py+4)+
+      '" text-anchor="end" fill="#9aa8ba" font-size="10">'+escapeHtml(formatCompact(value))+'</text>'});
+    slots.forEach((item,index)=>{if(item.value<=0)return;const base=y(0),safeValue=Math.min(item.value,safe);
+      const safeY=y(safeValue),title=escapeHtml(formatTrendTime(item.timestamp,hourly)+' · '+formatCompact(item.value)+' '+
+        metric.unit+(item.value>safe?' · 超过安全线 '+formatRatio(item.value/safe):''));
+      svg+='<rect x="'+(x(index)-barWidth/2).toFixed(1)+'" y="'+safeY.toFixed(1)+'" width="'+barWidth.toFixed(1)+
+        '" height="'+Math.max(1,base-safeY).toFixed(1)+'" rx="2" fill="#5eead4" opacity=".78"><title>'+title+'</title></rect>';
+      if(item.value>safe){const valueY=y(item.value),limitY=y(safe);
+        svg+='<rect x="'+(x(index)-barWidth/2).toFixed(1)+'" y="'+valueY.toFixed(1)+'" width="'+barWidth.toFixed(1)+
+          '" height="'+Math.max(1,limitY-valueY).toFixed(1)+'" rx="2" fill="#fb7185"><title>'+title+'</title></rect>'}});
+    if(showSafeInPlot){const safeY=y(safe);
+      svg+='<line x1="'+m.left+'" y1="'+safeY+'" x2="'+(width-m.right)+'" y2="'+safeY+
+        '" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="6 5"/>'+
+        '<rect x="'+(m.left+3)+'" y="'+Math.max(top+1,safeY-19)+'" width="134" height="16" rx="3" fill="#0d1420" stroke="#60a5fa"/>'+
+        '<text x="'+(m.left+9)+'" y="'+Math.max(top+12,safeY-8)+'" fill="#dbeafe" font-size="9">安全线 '+
+        escapeHtml(formatCompact(safe))+'</text>'}
+    else{const multiple=peak.value===0?null:safe/peak.value;
+      const copy=multiple===null?'安全线高于当前图表':'安全线高于峰值 '+formatRatio(multiple);
+      const boxWidth=multiple===null?132:154;
+      svg+='<rect x="'+(width-m.right-boxWidth)+'" y="'+top+'" width="'+boxWidth+'" height="20" rx="4" fill="#0d1420" stroke="#60a5fa"/>'+
+        '<text x="'+(width-m.right-8)+'" y="'+(top+13)+'" text-anchor="end" fill="#dbeafe" font-size="9">'+
+        escapeHtml(copy)+'</text>'}
+    if(moving.length>1)svg+='<polyline points="'+moving.map((item)=>x(item.index).toFixed(1)+','+
+      y(item.value).toFixed(1)).join(' ')+'" fill="none" stroke="#fbbf24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';
+    const tickEvery=Math.max(1,Math.ceil(slots.length/(hourly?7:8)));
+    slots.forEach((item,index)=>{if(index%tickEvery!==0&&index!==slots.length-1)return;
+      svg+='<text x="'+x(index)+'" y="'+bottomY+'" text-anchor="middle" fill="#9aa8ba" font-size="9">'+
+        escapeHtml(formatTrendTime(item.timestamp,hourly))+'</text>'});
+    svg+='</svg>';els.instanceChart.innerHTML=svg;
+    els.instanceChart.setAttribute('aria-label',contributor.name+'的'+metric.label+'趋势，峰值 '+
+      formatCompact(peak.value)+' '+metric.unit+'，产品安全线 '+formatCompact(safe)+' '+metric.unit);
+  }
+
+  function renderInstanceBenchmark(metric,peak,safe,hourly){
+    const maximum=Math.max(peak,safe,1)*1.08,safePosition=safe/maximum*100;
+    const ratio=safe===0?null:peak/safe;
+    const result=ratio===null?'当前没有可用的安全线':
+      ratio===0?'当前无用量':
+      ratio>=1?'峰值超过安全线 <strong>'+formatRatio(ratio)+'</strong>':
+      '峰值达到安全线的 <strong>'+formatBenchmarkPercent(ratio)+'</strong> · 相差约 <strong>'+formatRatio(1/ratio)+'</strong>';
+    els.instanceBenchmark.innerHTML='<div class="instance-benchmark-copy"><span>实例峰值 <b>'+
+      formatCompact(peak)+' '+escapeHtml(metric.unit)+'</b></span><span>'+(hourly?'每小时':'每日')+
+      '安全线 <b>'+formatCompact(safe)+' '+escapeHtml(metric.unit)+'</b></span></div>'+
+      '<span class="quota-meter"><progress class="quota-progress '+(peak>safe?'critical':'')+'" max="'+
+      maximum.toFixed(2)+'" value="'+peak.toFixed(2)+'" aria-label="实例峰值与安全线对比"></progress>'+
+      '<svg class="quota-meter-marker" viewBox="0 0 100 18" preserveAspectRatio="none" aria-hidden="true">'+
+      '<line class="quota-marker" x1="'+safePosition.toFixed(2)+'" x2="'+safePosition.toFixed(2)+
+      '" y1="0" y2="18"></line></svg></span>'+
+      '<p class="instance-benchmark-result">'+result+'</p>';
+  }
+
+  function instanceSafePerSlot(metric,hourly){
+    const hour=3600000,periodHours=Math.max(1,(Date.parse(metric.periodEnd)-Date.parse(metric.periodStart))/hour);
+    if(!hourly&&metric.period==='utc_day')return metric.quota;
+    return metric.quota*(hourly?1:24)/periodHours;
+  }
+
+  function formatRatio(value){return (value>=10000?formatCompact(value):
+    new Intl.NumberFormat('zh-CN',{maximumFractionDigits:1}).format(value))+'×'}
+  function formatBenchmarkPercent(value){return new Intl.NumberFormat('zh-CN',{style:'percent',
+    maximumFractionDigits:value<.001?6:1}).format(value)}
+
+  function instanceSlots(source,measuredAt,hourly){
+    const hour=3600000,day=24*hour,unit=hourly?hour:day,end=Math.ceil(Date.parse(measuredAt)/unit)*unit;
+    const start=hourly?end-48*hour:Math.floor(Date.parse(data.cycle.start)/day)*day;
+    const values=new Map(source.map((item)=>[Date.parse(item.timestamp),item.value])),slots=[];
+    for(let time=start;time<end;time+=unit)slots.push({timestamp:new Date(time).toISOString(),value:values.get(time)||0});
+    return slots;
+  }
+
+  function movingValueAverage(samples,size){return samples.map((item,index)=>{const window=samples.slice(Math.max(0,index-size+1),index+1);
+    return {index,value:window.reduce((sum,sample)=>sum+sample.value,0)/window.length}})}
 
   function renderQuotaProgress(metric){
     const usedPercent=Math.max(0,metric.usedRatio*100);
@@ -535,8 +731,9 @@ export const DASHBOARD_JS = `(() => {
     const rows=metric.contributors.map((item)=>{
       const hour=recent.get(item.id)?.value||0,share=metric.used===0?0:item.value/metric.used;
       const projected=item.value+hour*remainingHours;
-      return '<tr><td class="instance-name"><strong>'+escapeHtml(item.name)+'</strong><small>'+escapeHtml(shortId(item.id))+
-        '</small></td><td>'+formatCompact(item.value)+'</td><td><span class="instance-share"><i style="--share:'+
+      return '<tr><td class="instance-name"><button class="instance-link" type="button" data-instance="'+escapeHtml(item.id)+
+        '"><strong>'+escapeHtml(item.name)+'</strong><small>'+escapeHtml(shortId(item.id))+
+        '</small></button></td><td>'+formatCompact(item.value)+'</td><td><span class="instance-share"><i style="--share:'+
         Math.min(100,share*100).toFixed(1)+'%"></i>'+formatPercent(share)+'</span></td><td>'+formatCompact(hour)+
         '</td><td>'+formatCompact(projected)+'</td></tr>';
     });
@@ -548,7 +745,10 @@ export const DASHBOARD_JS = `(() => {
     els.issueList.innerHTML=data.failures.map((item)=>'<li><strong>'+escapeHtml(item.collector)+
       '</strong> · '+escapeHtml(item.message)+'</li>').join('');
   }
-  function currentProduct(){const match=location.pathname.match(/^\\/usage\\/([^/]+)$/);return match?decodeURIComponent(match[1]):null}
+  function currentProduct(){const match=location.pathname.match(/^\\/usage\\/([^/]+)(?:\\/instances\\/[^/]+)?$/);
+    return match?decodeURIComponent(match[1]):null}
+  function currentInstance(){const match=location.pathname.match(/^\\/usage\\/[^/]+\\/instances\\/([^/]+)$/);
+    return match?decodeURIComponent(match[1]):null}
   function navigate(url){history.pushState({},'',url);selectedMetric=null;render();scrollTo({top:0,behavior:'smooth'})}
   function setRisk(el,risk,label){el.className='status-pill risk-'+risk;el.textContent=label}
   function formatCompact(value){return new Intl.NumberFormat('zh-CN',{notation:'compact',maximumFractionDigits:2}).format(value)}
@@ -563,8 +763,14 @@ export const DASHBOARD_JS = `(() => {
     const nav=event.target.closest('[data-nav]');if(nav){event.preventDefault();navigate(nav.getAttribute('href'));return}
     const product=event.target.closest('[data-product]');if(product){navigate('/usage/'+encodeURIComponent(product.dataset.product));return}
     const tab=event.target.closest('[data-metric]');if(tab){selectedMetric=tab.dataset.metric;
-      const url=new URL(location.href);url.searchParams.set('metric',selectedMetric);history.replaceState({},'',url);render()}
+      const url=new URL(location.href);url.searchParams.set('metric',selectedMetric);
+      history.replaceState({},'',url);render()}
     const grain=event.target.closest('[data-grain]');if(grain){selectedGrain=grain.dataset.grain;render()}
+    const instance=event.target.closest('[data-instance]');if(instance){const product=currentProduct();
+      const url=new URL('/usage/'+encodeURIComponent(product)+'/instances/'+encodeURIComponent(instance.dataset.instance),location.origin);
+      url.searchParams.set('metric',selectedMetric);history.pushState({},'',url);render();scrollTo({top:0,behavior:'smooth'})}
+    const instanceTab=event.target.closest('[data-instance-grain]');if(instanceTab){
+      instanceGrain=instanceTab.dataset.instanceGrain;render()}
   });
   addEventListener('popstate',()=>{selectedMetric=null;render()});
   els.refresh.addEventListener('click',()=>load(true));

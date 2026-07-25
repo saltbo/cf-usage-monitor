@@ -1,4 +1,4 @@
-import { collectQuotaUsage } from "./analytics";
+import { collectInstanceUsage, collectQuotaUsage } from "./analytics";
 import { isDashboardAuthorized, unauthorizedResponse } from "./auth";
 import { loadBillingCycle } from "./billing";
 import {
@@ -20,6 +20,7 @@ import {
   type QuotaRecoveredEvent,
   type QuotaRiskEvent,
 } from "./notifications";
+import { METRIC_NAMES, type MetricName } from "./metrics";
 
 const STATE_KEY = "monitor-state-v2";
 const SAMPLE_INTERVAL_MS = SAMPLE_INTERVAL_MINUTES * 60 * 1_000;
@@ -59,6 +60,39 @@ export default {
         d1DatabaseNames: readD1DatabaseNames(env),
       });
       return Response.json(dashboard, {
+        headers: { "Cache-Control": "no-store" },
+      });
+    }
+    if (request.method === "GET" && url.pathname === "/api/instance-usage") {
+      const metric = url.searchParams.get("metric");
+      const instanceId = url.searchParams.get("instance");
+      if (!metric || !METRIC_NAMES.includes(metric as MetricName)) {
+        return Response.json(
+          { error: "metric must be a supported quota metric" },
+          { status: 400 },
+        );
+      }
+      if (!instanceId) {
+        return Response.json(
+          { error: "instance must be a non-empty resource identifier" },
+          { status: 400 },
+        );
+      }
+      const measuredAt = new Date(Date.now() - ANALYTICS_DELAY_MS).toISOString();
+      const cycle = await loadBillingCycle(
+        env.CF_ACCOUNT_ID,
+        env.CF_API_TOKEN,
+        Date.parse(measuredAt),
+      );
+      const trends = await collectInstanceUsage(
+        env.CF_ACCOUNT_ID,
+        env.CF_API_TOKEN,
+        metric as MetricName,
+        instanceId,
+        cycle.start,
+        measuredAt,
+      );
+      return Response.json(trends, {
         headers: { "Cache-Control": "no-store" },
       });
     }

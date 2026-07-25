@@ -35,6 +35,16 @@ interface ResourceNames {
   d1: Record<string, string>;
 }
 
+interface InstanceMetricDefinition {
+  dataset: string;
+  resourceField: string;
+  selection: string;
+  valuePath: ReadonlyArray<string>;
+  multiplier?: number;
+  action?: string;
+  actions?: ReadonlySet<string>;
+}
+
 const R2_CLASS_A = new Set([
   "ListBuckets",
   "PutBucket",
@@ -225,6 +235,149 @@ const collectors: Collector[] = [
   },
 ];
 
+const INSTANCE_METRICS = {
+  "workers.requests": {
+    dataset: "workersInvocationsAdaptive",
+    resourceField: "scriptName",
+    selection: "sum { requests }",
+    valuePath: ["sum", "requests"],
+  },
+  "workers.cpu_milliseconds": {
+    dataset: "workersInvocationsAdaptive",
+    resourceField: "scriptName",
+    selection: "sum { cpuTimeUs }",
+    valuePath: ["sum", "cpuTimeUs"],
+    multiplier: 1 / 1_000,
+  },
+  "d1.rows_read": {
+    dataset: "d1AnalyticsAdaptiveGroups",
+    resourceField: "databaseId",
+    selection: "sum { rowsRead }",
+    valuePath: ["sum", "rowsRead"],
+  },
+  "d1.rows_written": {
+    dataset: "d1AnalyticsAdaptiveGroups",
+    resourceField: "databaseId",
+    selection: "sum { rowsWritten }",
+    valuePath: ["sum", "rowsWritten"],
+  },
+  "kv.reads": {
+    dataset: "kvOperationsAdaptiveGroups",
+    resourceField: "namespaceId",
+    selection: "dimensions { actionType } sum { requests }",
+    valuePath: ["sum", "requests"],
+    action: "read",
+  },
+  "kv.writes": {
+    dataset: "kvOperationsAdaptiveGroups",
+    resourceField: "namespaceId",
+    selection: "dimensions { actionType } sum { requests }",
+    valuePath: ["sum", "requests"],
+    action: "write",
+  },
+  "kv.deletes": {
+    dataset: "kvOperationsAdaptiveGroups",
+    resourceField: "namespaceId",
+    selection: "dimensions { actionType } sum { requests }",
+    valuePath: ["sum", "requests"],
+    action: "delete",
+  },
+  "kv.lists": {
+    dataset: "kvOperationsAdaptiveGroups",
+    resourceField: "namespaceId",
+    selection: "dimensions { actionType } sum { requests }",
+    valuePath: ["sum", "requests"],
+    action: "list",
+  },
+  "r2.class_a_operations": {
+    dataset: "r2OperationsAdaptiveGroups",
+    resourceField: "bucketName",
+    selection: "dimensions { actionType } sum { requests }",
+    valuePath: ["sum", "requests"],
+    actions: R2_CLASS_A,
+  },
+  "r2.class_b_operations": {
+    dataset: "r2OperationsAdaptiveGroups",
+    resourceField: "bucketName",
+    selection: "dimensions { actionType } sum { requests }",
+    valuePath: ["sum", "requests"],
+    actions: R2_CLASS_B,
+  },
+  "durable_objects.requests": {
+    dataset: "durableObjectsInvocationsAdaptiveGroups",
+    resourceField: "namespaceId",
+    selection: "sum { requests }",
+    valuePath: ["sum", "requests"],
+  },
+  "queues.operations": {
+    dataset: "queueMessageOperationsAdaptiveGroups",
+    resourceField: "queueId",
+    selection: "sum { billableOperations }",
+    valuePath: ["sum", "billableOperations"],
+  },
+  "workers_ai.neurons": {
+    dataset: "aiInferenceAdaptiveGroups",
+    resourceField: "modelId",
+    selection: "sum { totalNeurons }",
+    valuePath: ["sum", "totalNeurons"],
+  },
+  "containers.cpu_seconds": {
+    dataset: "containersUsageAdaptiveGroups",
+    resourceField: "applicationId",
+    selection: "sum { cpuTimeSec }",
+    valuePath: ["sum", "cpuTimeSec"],
+  },
+} as const satisfies Record<MetricName, InstanceMetricDefinition>;
+
+export interface InstanceUsageTrends {
+  metric: MetricName;
+  instanceId: string;
+  measuredAt: string;
+  hourly: UsageSeries["points"];
+  daily: UsageSeries["points"];
+}
+
+export async function collectInstanceUsage(
+  accountId: string,
+  apiToken: string,
+  metric: MetricName,
+  instanceId: string,
+  cycleStart: string,
+  measuredAt: string,
+): Promise<InstanceUsageTrends> {
+  const definition = INSTANCE_METRICS[metric];
+  const measuredAtMs = Date.parse(measuredAt);
+  const data = await queryAnalytics(
+    apiToken,
+    instanceUsageQuery(definition),
+    {
+      accountId,
+      instanceId,
+      hourlyStart: new Date(
+        Math.max(Date.parse(cycleStart), measuredAtMs - 48 * 60 * 60 * 1_000),
+      ).toISOString(),
+      trendStart: cycleStart,
+      end: measuredAt,
+    },
+  );
+  const account = getAccount(data);
+  return {
+    metric,
+    instanceId,
+    measuredAt,
+    hourly: extractInstanceSeries(
+      getArray(account, "hourly"),
+      "datetimeHour",
+      definition,
+    ),
+    daily: extractInstanceSeries(
+      getArray(account, "daily"),
+      "date",
+      definition,
+    ),
+  };
+}
+
 export async function collectQuotaUsage(
   accountId: string,
   apiToken: string,
@@ -307,6 +460,84 @@ export async function collectQuotaUsage(
     ),
     failures,
   };
+}
+
+function instanceUsageQuery(definition: InstanceMetricDefinition): string {
+  const hourlySelection = withInstanceTimeDimension(
+    definition.selection,
+    "datetimeHour",
+  );
+  const dailySelection = withInstanceTimeDimension(
+    definition.selection,
+    "date",
+  );
+  return `query InstanceUsage(
+    $accountId: string!
+    $instanceId: string!
+    $hourlyStart: Time!
+    $trendStart: Time!
+    $end: Time!
+  ) {
+    viewer {
+      accounts(filter: { accountTag: $accountId }) {
+        hourly: ${definition.dataset}(
+          limit: 10000
+          filter: {
+            datetime_geq: $hourlyStart
+            datetime_lt: $end
+            ${definition.resourceField}: $instanceId
+          }
+        ) { ${hourlySelection} }
+        daily: ${definition.dataset}(
+          limit: 10000
+          filter: {
+            datetime_geq: $trendStart
+            datetime_lt: $end
+            ${definition.resourceField}: $instanceId
+          }
+        ) { ${dailySelection} }
+      }
+    }
+  }`;
+}
+
+function withInstanceTimeDimension(
+  selection: string,
+  dimension: "datetimeHour" | "date",
+): string {
+  return selection.includes("dimensions {")
+    ? selection.replace("dimensions {", `dimensions { ${dimension}`)
+    : `dimensions { ${dimension} } ${selection}`;
+}
+
+function extractInstanceSeries(
+  rows: Record<string, unknown>[],
+  dimension: "datetimeHour" | "date",
+  definition: InstanceMetricDefinition,
+): UsageSeries["points"] {
+  const byTimestamp = new Map<string, number>();
+  for (const row of rows) {
+    const action = getOptionalStringAtPath(row, ["dimensions", "actionType"]);
+    if (
+      definition.action &&
+      action?.toLowerCase() !== definition.action
+    ) {
+      continue;
+    }
+    if (definition.actions && (!action || !definition.actions.has(action))) {
+      continue;
+    }
+    const rawTimestamp = getStringAtPath(row, ["dimensions", dimension]);
+    const timestamp =
+      dimension === "date" ? `${rawTimestamp}T00:00:00.000Z` : rawTimestamp;
+    const value =
+      getNumberAtPath(row, definition.valuePath) *
+      (definition.multiplier ?? 1);
+    byTimestamp.set(timestamp, (byTimestamp.get(timestamp) ?? 0) + value);
+  }
+  return [...byTimestamp.entries()]
+    .map(([timestamp, value]) => ({ timestamp, value }))
+    .sort((left, right) => left.timestamp.localeCompare(right.timestamp));
 }
 
 function startOfUtcDay(value: string): string {

@@ -26,4 +26,34 @@ describe("dashboard page", () => {
     expect(DASHBOARD_JS).not.toContain("蓝线为额度 100%");
     expect(DASHBOARD_JS).toContain("const marker=exceeded?");
   });
+
+  it("drills from a contributor into an on-demand instance trend", () => {
+    expect(DASHBOARD_JS).toContain(
+      "fetch('/api/instance-usage?'+params",
+    );
+    expect(DASHBOARD_JS).toContain(
+      `data-instance="'+escapeHtml(item.id)`,
+    );
+    expect(DASHBOARD_JS).toContain(
+      "'/instances/'+encodeURIComponent(instance.dataset.instance)",
+    );
+    expect(DASHBOARD_JS).toContain("function currentInstance()");
+    expect(DASHBOARD_JS).not.toContain(
+      "url.searchParams.delete('instance')",
+    );
+    expect(DASHBOARD_JS).toContain(
+      "const showSafeInPlot=safe<=peak.value*2",
+    );
+    expect(DASHBOARD_JS).toContain(
+      "function renderInstanceBenchmark",
+    );
+    expect(DASHBOARD_JS).toContain(
+      `'<span class="quota-meter"><progress class="quota-progress '`,
+    );
+    expect(DASHBOARD_JS).toContain(
+      "function instanceSafePerSlot",
+    );
+    expect(DASHBOARD_CSS).toContain(".instance-benchmark");
+    expect(DASHBOARD_CSS).toContain(".instance-chart");
+  });
 });
