@@ -52,33 +52,29 @@ export const DASHBOARD_HTML = `<!doctype html>
     </section>
 
     <section id="detail" hidden>
-      <nav class="breadcrumb" aria-label="面包屑">
-        <a href="/" data-nav>账户额度</a><span>/</span><strong id="detail-product-name">—</strong>
-      </nav>
       <div class="detail-heading">
-        <div>
-          <p class="eyebrow">产品详情</p>
+        <div class="detail-heading-main">
+          <a class="detail-back" href="/" data-nav aria-label="返回账户额度">←</a>
           <h1 id="detail-title">—</h1>
-          <p id="detail-description">—</p>
         </div>
-        <span id="detail-status" class="status-pill">—</span>
+        <div id="metric-tabs" class="metric-tabs" role="tablist" aria-label="计费指标"></div>
       </div>
 
-      <div id="metric-tabs" class="metric-tabs" role="tablist" aria-label="计费指标"></div>
-
       <section class="risk-panel" aria-labelledby="risk-title">
-        <div class="risk-copy">
-          <div>
-            <p class="eyebrow">额度预测</p>
-            <h2 id="risk-title">—</h2>
-            <p id="risk-summary">—</p>
+        <div class="detail-quota" aria-label="额度使用进度">
+          <div class="detail-quota-heading">
+            <div><small id="risk-title">额度使用进度</small><strong id="detail-quota-percent">—</strong></div>
+            <div class="detail-quota-meta">
+              <span id="detail-quota-forecast">—</span>
+              <b id="detail-quota-values">—</b>
+            </div>
           </div>
-          <div class="risk-facts">
-            <span><small>本期已用</small><strong id="used-value">—</strong></span>
-            <span><small>稳健预计期末</small><strong id="projected-value">—</strong></span>
-            <span><small>最近 1 小时速度</small><strong id="burn-value">—</strong></span>
-            <span><small>按最近 1 小时耗尽</small><strong id="exhaust-value">—</strong></span>
+          <div id="detail-quota-track" class="detail-quota-track" role="progressbar"
+            aria-label="本期额度使用比例" aria-valuemin="0"></div>
+          <div class="detail-quota-foot">
+            <span>0%</span><strong id="detail-quota-balance">—</strong><span id="detail-quota-scale">额度 100%</span>
           </div>
+          <p id="risk-summary" class="detail-quota-summary">—</p>
         </div>
         <div class="trend-heading">
           <div>
@@ -90,11 +86,6 @@ export const DASHBOARD_HTML = `<!doctype html>
             <button type="button" role="tab" data-grain="hourly" aria-selected="true">小时</button>
             <button type="button" role="tab" data-grain="daily" aria-selected="false">天</button>
           </div>
-        </div>
-        <div class="trend-stats" aria-label="增长速度摘要">
-          <span><small id="latest-label">最近完整小时</small><strong id="latest-rate">—</strong></span>
-          <span><small id="average-label">48 小时平均</small><strong id="average-rate">—</strong></span>
-          <span><small id="peak-label">48 小时峰值</small><strong id="peak-rate">—</strong></span>
         </div>
         <div class="chart-legend" aria-label="图例">
           <span><i class="increment"></i>实际用量</span>
@@ -166,58 +157,77 @@ button:focus-visible,a:focus-visible{outline:3px solid rgba(94,234,212,.38);outl
 .page-shell{padding:26px 0 44px}.loading-state{min-height:320px;display:grid;place-items:center;
   color:var(--muted);border:1px dashed var(--line-strong);border-radius:var(--radius)}
 .loading-state[hidden]{display:none}
-.page-heading,.detail-heading{display:flex;justify-content:space-between;align-items:flex-end;gap:28px;margin-bottom:18px}
+.page-heading{display:flex;justify-content:space-between;align-items:flex-end;gap:28px;margin-bottom:18px}
 .eyebrow{margin:0 0 6px;color:var(--subtle);font-size:10px;font-weight:750;letter-spacing:.12em;text-transform:uppercase}
-h1,h2,p{margin-top:0}.page-heading h1,.detail-heading h1{margin-bottom:7px;font-size:clamp(25px,4vw,38px);letter-spacing:-.04em}
-.page-heading p:not(.eyebrow),.detail-heading p:not(.eyebrow){margin:0;color:var(--muted);font-size:12px}
-.status-pill,.risk-chip{display:inline-flex;align-items:center;min-height:28px;padding:0 10px;
-  border-radius:5px;font-size:10px;font-weight:800;white-space:nowrap}
+h1,h2,p{margin-top:0}.page-heading h1{margin-bottom:7px;font-size:clamp(25px,4vw,38px);letter-spacing:-.04em}
+.page-heading p:not(.eyebrow){margin:0;color:var(--muted);font-size:12px}
+.status-pill,.risk-chip{display:inline-flex;align-items:center;min-height:30px;padding:0 11px;
+  border-radius:5px;font-size:11px;font-weight:800;white-space:nowrap}
 .risk-normal{color:var(--green);background:var(--green-soft)}.risk-warning{color:var(--amber);background:var(--amber-soft)}
 .risk-critical,.risk-exceeded{color:#fecdd3;background:var(--red-soft)}
 .summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;margin-bottom:28px;
   overflow:hidden;border:1px solid var(--line);border-radius:var(--radius);background:var(--line)}
-.summary-grid article{padding:15px 17px;background:var(--surface)}.summary-grid span{display:block;color:var(--subtle);font-size:10px}
-.summary-grid strong{display:block;margin-top:8px;font-size:21px;font-variant-numeric:tabular-nums}
+.summary-grid article{padding:16px 18px;background:var(--surface)}.summary-grid span{display:block;color:var(--muted);font-size:11px}
+.summary-grid strong{display:block;margin-top:8px;font-size:24px;font-variant-numeric:tabular-nums}
 .section-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin:0 0 10px}
-.section-heading h2{margin:0;font-size:18px}.section-heading>p{margin:0;color:var(--subtle);font-size:10px}
+.section-heading h2{margin:0;font-size:19px}.section-heading>p{margin:0;color:var(--muted);font-size:12px}
 .product-list{display:grid;gap:10px}.product-card{width:100%;padding:0;display:grid;
   grid-template-columns:minmax(190px,.8fr) minmax(0,2.2fr) auto;align-items:stretch;
   color:inherit;text-align:left;background:var(--surface);border:1px solid var(--line);
   border-radius:var(--radius);cursor:pointer;overflow:hidden;transition:border-color 160ms ease,background 160ms ease}
 .product-card:hover{border-color:var(--line-strong);background:var(--surface-2)}
 .product-identity{padding:17px 18px;border-right:1px solid var(--line)}
-.product-identity strong{display:block;margin-bottom:5px;font-size:15px}.product-identity small{color:var(--subtle);font-size:10px}
+.product-identity strong{display:block;margin-bottom:5px;font-size:16px}.product-identity small{color:var(--muted);font-size:12px;line-height:1.45}
 .product-metrics{display:grid;align-content:center;gap:11px;padding:14px 18px}
 .quota-row{display:grid;grid-template-columns:minmax(130px,.9fr) minmax(150px,1.4fr) auto;align-items:center;gap:14px}
-.quota-label{font-size:11px}.quota-progress{height:7px;overflow:hidden;background:#202c3d;border-radius:999px}
-.quota-progress i{height:100%;display:block;background:var(--teal);border-radius:inherit}
-.quota-progress i.warning{background:var(--amber)}.quota-progress i.critical{background:var(--red)}
-.quota-numbers{min-width:145px;text-align:right;font:10px ui-monospace,monospace;color:var(--muted)}
-.quota-numbers b{color:var(--text);font-weight:700}.product-action{min-width:112px;padding:16px;
+.quota-label{font-size:13px;font-weight:650}.quota-meter{position:relative;width:100%;height:9px;display:block}
+.quota-progress{width:100%;height:100%;display:block;overflow:hidden;appearance:none;-webkit-appearance:none;
+  border:0;background:#202c3d;border-radius:999px}
+.quota-progress::-webkit-progress-bar{background:#202c3d;border-radius:999px}
+.quota-progress::-webkit-progress-value{background:var(--teal);border-radius:999px}
+.quota-progress::-moz-progress-bar{background:var(--teal);border-radius:999px}
+.quota-progress.warning::-webkit-progress-value{background:var(--amber)}
+.quota-progress.warning::-moz-progress-bar{background:var(--amber)}
+.quota-progress.critical::-webkit-progress-value{background:var(--red)}
+.quota-progress.critical::-moz-progress-bar{background:var(--red)}
+.quota-meter-marker{position:absolute;inset:-4px 0;width:100%;height:calc(100% + 8px);overflow:visible;pointer-events:none}
+.quota-meter-marker .forecast-marker{stroke:var(--amber);stroke-width:2;vector-effect:non-scaling-stroke}
+.quota-meter-marker .quota-marker{stroke:var(--blue);stroke-width:2;vector-effect:non-scaling-stroke}
+.quota-numbers{min-width:76px;text-align:right;font:12px ui-monospace,monospace;color:var(--muted)}
+.quota-numbers b{color:var(--text);font-size:14px;font-weight:800}.product-action{min-width:112px;padding:16px;
   display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;border-left:1px solid var(--line)}
 .product-action .arrow{font-size:20px;color:var(--subtle)}
-.breadcrumb{display:flex;gap:8px;margin-bottom:16px;color:var(--subtle);font-size:11px}
-.breadcrumb a{min-height:32px;display:inline-flex;align-items:center;color:var(--teal);text-decoration:none}
-.breadcrumb span,.breadcrumb strong{display:inline-flex;align-items:center}.metric-tabs{display:flex;gap:8px;overflow-x:auto;margin-bottom:12px;padding-bottom:2px}
-.metric-tab{min-height:48px;padding:8px 12px;display:flex;align-items:center;gap:9px;color:var(--muted);
+.detail-heading{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:20px;margin-bottom:12px;padding:9px 10px;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius)}
+.detail-heading-main{min-width:0;display:flex;align-items:center;gap:14px}
+.detail-heading h1{margin:0;font-size:21px;line-height:1.2;letter-spacing:-.025em;white-space:nowrap}
+.detail-back{width:34px;height:34px;display:grid;place-items:center;color:var(--teal);background:var(--canvas);
+  border:1px solid var(--line-strong);border-radius:7px;font-size:18px;font-weight:700;text-decoration:none}
+.detail-back:hover{border-color:var(--teal)}
+.metric-tabs{min-width:0;display:flex;justify-content:flex-end;gap:7px;overflow-x:auto;margin:0;padding:0}
+.metric-tab{min-height:40px;padding:6px 10px;display:flex;align-items:center;gap:8px;color:var(--muted);
   background:var(--surface);border:1px solid var(--line);border-radius:7px;cursor:pointer;white-space:nowrap}
 .metric-tab[aria-selected=true]{color:var(--text);border-color:var(--teal);background:var(--teal-soft)}
-.metric-tab small{font:9px ui-monospace,monospace}.risk-panel{padding:20px;background:var(--surface);
+.metric-tab span{font-size:12px;font-weight:650}.risk-panel{padding:20px;background:var(--surface);
   border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
-.risk-copy{display:grid;grid-template-columns:minmax(220px,.8fr) minmax(0,1.6fr);gap:28px;align-items:start}
-.risk-copy h2{margin-bottom:7px;font-size:20px}.risk-copy>div>p:not(.eyebrow){margin:0;color:var(--muted);font-size:11px;line-height:1.6}
-.risk-facts{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:7px;overflow:hidden}
-.risk-facts span{padding:12px;background:var(--surface-2)}.risk-facts small{display:block;margin-bottom:7px;color:var(--subtle);font-size:9px}
-.risk-facts strong{display:block;font:12px ui-monospace,monospace;overflow-wrap:anywhere}
+.detail-quota{padding-top:2px}
+.detail-quota-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:13px}
+.detail-quota-heading small{display:block;margin-bottom:5px;color:var(--muted);font-size:11px}
+.detail-quota-heading>div>strong{display:block;font:750 25px ui-monospace,monospace}
+.detail-quota-meta{text-align:right}.detail-quota-meta span{display:block;margin-bottom:5px;color:var(--teal);font-size:12px;font-weight:700}
+.detail-quota-meta span.warning{color:var(--amber)}.detail-quota-meta span.critical{color:#fecdd3}
+.detail-quota-meta b{display:block;font:13px ui-monospace,monospace}
+.detail-quota-track{height:12px}.detail-quota-track .quota-meter{height:12px}
+.detail-quota-foot{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:16px;margin-top:9px;color:var(--muted);font-size:11px}
+.detail-quota-foot strong{text-align:center;color:var(--text);font:12px ui-monospace,monospace}
+.detail-quota-foot strong.warning{color:var(--amber)}.detail-quota-foot strong.critical{color:#fecdd3}
+.detail-quota-summary{margin:14px 0 0;color:var(--muted);font-size:12px;line-height:1.55}
 .trend-heading{display:flex;justify-content:space-between;align-items:flex-end;gap:18px;margin-top:28px;padding-top:20px;border-top:1px solid var(--line)}
-.trend-heading h3{margin:0 0 5px;font-size:17px}.trend-heading>div>p:last-child{margin:0;color:var(--muted);font-size:10px}
+.trend-heading h3{margin:0 0 5px;font-size:18px}.trend-heading>div>p:last-child{margin:0;color:var(--muted);font-size:12px}
 .trend-tabs{display:flex;padding:3px;background:var(--canvas);border:1px solid var(--line);border-radius:7px}
-.trend-tabs button{min-width:54px;min-height:30px;color:var(--muted);background:transparent;border:0;border-radius:5px;cursor:pointer;font-size:10px}
+.trend-tabs button{min-width:56px;min-height:32px;color:var(--muted);background:transparent;border:0;border-radius:5px;cursor:pointer;font-size:11px}
 .trend-tabs button[aria-selected=true]{color:var(--text);background:var(--surface-2)}
-.trend-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin-top:13px;overflow:hidden;background:var(--line);border:1px solid var(--line);border-radius:7px}
-.trend-stats span{padding:10px 12px;background:var(--surface-2)}.trend-stats small{display:block;margin-bottom:5px;color:var(--subtle);font-size:9px}
-.trend-stats strong{font:12px ui-monospace,monospace}
-.chart-legend{display:flex;gap:16px;flex-wrap:wrap;margin:14px 0 4px;color:var(--muted);font-size:9px}
+.chart-legend{display:flex;gap:16px;flex-wrap:wrap;margin:14px 0 4px;color:var(--muted);font-size:10px}
 .chart-legend span{display:inline-flex;align-items:center;gap:6px}.chart-legend i{width:18px;height:0;border-top:2px solid}
 .chart-legend b{font-weight:400}.chart-legend .increment{height:8px;border:0;background:var(--teal)}
 .chart-legend .forecast-bars{height:8px;border:1px dashed var(--teal)}
@@ -227,9 +237,9 @@ h1,h2,p{margin-top:0}.page-heading h1,.detail-heading h1{margin-bottom:7px;font-
 .chart-legend .safe{border-color:var(--blue);border-style:dashed}
 .quota-chart{min-height:340px}.quota-chart svg{width:100%;height:auto;display:block}.contributors-section{margin-top:24px}
 .contributors-table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
-table{width:100%;border-collapse:collapse;min-width:760px}th,td{padding:13px 15px;text-align:right;border-bottom:1px solid var(--line);font-size:11px}
-th{color:var(--subtle);font-size:9px;text-transform:uppercase;letter-spacing:.06em}th:first-child,td:first-child{text-align:left}
-tbody tr:last-child td{border-bottom:0}.instance-name strong{display:block}.instance-name small{display:block;margin-top:4px;color:var(--subtle);font:9px ui-monospace,monospace}
+table{width:100%;border-collapse:collapse;min-width:760px}th,td{padding:14px 15px;text-align:right;border-bottom:1px solid var(--line);font-size:12px}
+th{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em}th:first-child,td:first-child{text-align:left}
+tbody tr:last-child td{border-bottom:0}.instance-name strong{display:block;font-size:13px}.instance-name small{display:block;margin-top:4px;color:var(--muted);font:10px ui-monospace,monospace}
 .instance-share{display:inline-flex;align-items:center;gap:8px}.instance-share i{width:54px;height:5px;background:#202c3d;border-radius:9px;overflow:hidden}
 .instance-share i:after{content:"";display:block;width:var(--share);height:100%;background:var(--teal)}
 .empty-row{text-align:center!important;color:var(--subtle);padding:30px!important}.issues-panel{margin-top:18px;padding:16px 18px;
@@ -237,14 +247,17 @@ tbody tr:last-child td{border-bottom:0}.instance-name strong{display:block}.inst
 .issues-panel ul{margin:10px 0 0;padding-left:18px;color:var(--muted)}footer{padding-top:22px;display:flex;justify-content:space-between;
   gap:20px;color:var(--subtle);font-size:9px}.toast{position:fixed;right:18px;bottom:18px;z-index:40;max-width:360px;
   padding:12px 14px;background:var(--surface-2);border:1px solid var(--line-strong);border-radius:8px;font-size:11px}
-@media(max-width:900px){.product-card{grid-template-columns:180px 1fr}.product-action{display:none}
-  .risk-copy{grid-template-columns:1fr}.risk-facts{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:900px){.product-card{grid-template-columns:180px 1fr}.product-action{display:none}}
 @media(max-width:650px){.header-inner,.page-shell{width:min(100% - 22px,1240px)}.header-meta>span{display:none}
-  .page-shell{padding-top:18px}.page-heading,.detail-heading{align-items:flex-start}.summary-grid{grid-template-columns:repeat(2,1fr)}
+  .page-shell{padding-top:18px}.page-heading{align-items:flex-start}.summary-grid{grid-template-columns:repeat(2,1fr)}
   .section-heading{align-items:flex-start;display:block}.section-heading>p{margin-top:5px}.product-card{display:block}
   .product-identity{border-right:0;border-bottom:1px solid var(--line)}.product-metrics{padding:13px}.quota-row{grid-template-columns:1fr auto;gap:7px}
-  .quota-progress{grid-column:1/-1;grid-row:2}.quota-numbers{min-width:0}.risk-panel{padding:14px}.risk-facts{grid-template-columns:1fr 1fr}
-  .trend-heading{align-items:flex-start}.trend-stats{grid-template-columns:1fr}.quota-chart{min-height:300px}.brand small{display:none}footer{display:grid}}
+  .quota-meter{grid-column:1/-1;grid-row:2}.quota-numbers{min-width:0}.risk-panel{padding:14px}
+  .detail-heading{grid-template-columns:1fr;gap:8px;padding:9px}.detail-heading-main{gap:10px}.detail-heading h1{font-size:20px}
+  .metric-tabs{justify-content:flex-start}
+  .detail-quota-heading{align-items:flex-start;display:block}.detail-quota-meta{margin-top:12px;text-align:left}
+  .detail-quota-foot{grid-template-columns:auto auto;justify-content:space-between}.detail-quota-foot strong{grid-column:1/-1;grid-row:2;text-align:left}
+  .trend-heading{align-items:flex-start}.quota-chart{min-height:300px}.brand small{display:none}footer{display:grid}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}`;
 
 export const DASHBOARD_JS = `(() => {
@@ -256,14 +269,13 @@ export const DASHBOARD_JS = `(() => {
   const els={loading:$('loading'),overview:$('overview'),detail:$('detail'),account:$('account-name'),
     updated:$('last-updated'),refresh:$('refresh-button'),cycle:$('cycle-copy'),status:$('account-status'),
     critical:$('critical-count'),warning:$('warning-count'),products:$('product-count'),list:$('product-list'),
-    detailName:$('detail-product-name'),detailTitle:$('detail-title'),detailDescription:$('detail-description'),
-    detailStatus:$('detail-status'),tabs:$('metric-tabs'),riskTitle:$('risk-title'),riskSummary:$('risk-summary'),
-    used:$('used-value'),projected:$('projected-value'),burn:$('burn-value'),exhaust:$('exhaust-value'),
+    detailTitle:$('detail-title'),tabs:$('metric-tabs'),riskTitle:$('risk-title'),riskSummary:$('risk-summary'),
     chart:$('quota-chart'),contributors:$('contributors-body'),issues:$('issues-panel'),
     issueList:$('issues-list'),source:$('source-label'),toast:$('toast'),trendTabs:$('trend-tabs'),
-    trendTitle:$('trend-title'),trendSubtitle:$('trend-subtitle'),latestLabel:$('latest-label'),
-    latestRate:$('latest-rate'),averageLabel:$('average-label'),averageRate:$('average-rate'),
-    peakLabel:$('peak-label'),peakRate:$('peak-rate'),safeLabel:$('safe-label')};
+    trendTitle:$('trend-title'),trendSubtitle:$('trend-subtitle'),safeLabel:$('safe-label'),
+    quotaPercent:$('detail-quota-percent'),quotaForecast:$('detail-quota-forecast'),
+    quotaValues:$('detail-quota-values'),quotaTrack:$('detail-quota-track'),
+    quotaBalance:$('detail-quota-balance'),quotaScale:$('detail-quota-scale')};
 
   async function load(confirm){
     els.refresh.disabled=true;
@@ -301,12 +313,9 @@ export const DASHBOARD_JS = `(() => {
 
   function productCard(product){
     const metrics=product.metrics.map((metric)=>{
-      const percent=Math.min(100,Math.max(0,metric.usedRatio*100));
-      const barClass=metric.risk==='normal'?'':metric.risk==='warning'?'warning':'critical';
       return '<div class="quota-row"><span class="quota-label">'+escapeHtml(metric.label)+'</span>'+
-        '<span class="quota-progress"><i class="'+barClass+'" style="width:'+percent.toFixed(2)+'%"></i></span>'+
-        '<span class="quota-numbers"><b>'+formatCompact(metric.used)+'</b> / '+formatCompact(metric.quota)+
-        ' · 稳健预计 '+formatPercent(metric.forecastProjectedRatio)+'</span></div>';
+        quotaMeter(metric,true)+
+        '<span class="quota-numbers"><b>'+formatPercent(metric.usedRatio)+'</b></span></div>';
     }).join('');
     return '<button class="product-card" type="button" data-product="'+escapeHtml(product.name)+'">'+
       '<span class="product-identity"><strong>'+escapeHtml(product.label)+'</strong><small>'+
@@ -317,16 +326,14 @@ export const DASHBOARD_JS = `(() => {
 
   function renderDetail(product){
     els.overview.hidden=true;els.detail.hidden=false;
-    els.detailName.textContent=product.label;els.detailTitle.textContent=product.label+' 额度风险';
-    els.detailDescription.textContent=product.description+' · 当前计费指标按超额风险排序';
-    setRisk(els.detailStatus,product.risk,riskLabel[product.risk]);
+    els.detailTitle.textContent=product.label;
     const requested=new URL(location.href).searchParams.get('metric');
     if(!selectedMetric||!product.metrics.some((metric)=>metric.metric===selectedMetric)){
       selectedMetric=product.metrics.some((metric)=>metric.metric===requested)?requested:product.topMetric;
     }
     els.tabs.innerHTML=product.metrics.map((metric)=>'<button class="metric-tab" type="button" role="tab" data-metric="'+
       escapeHtml(metric.metric)+'" aria-selected="'+String(metric.metric===selectedMetric)+'"><span>'+
-      escapeHtml(metric.label)+'</span><small>'+formatPercent(metric.forecastProjectedRatio)+' 稳健期末</small></button>').join('');
+      escapeHtml(metric.label)+'</span></button>').join('');
     const metric=product.metrics.find((item)=>item.metric===selectedMetric)||product.metrics[0];
     renderMetric(product,metric);
   }
@@ -334,11 +341,63 @@ export const DASHBOARD_JS = `(() => {
   function renderMetric(product,metric){
     els.riskTitle.textContent=product.label+' · '+metric.label;
     els.riskSummary.textContent=summaryText(metric);
-    els.used.textContent=formatCompact(metric.used)+' / '+formatCompact(metric.quota)+' '+metric.unit;
-    els.projected.textContent=formatCompact(metric.forecastProjectedUsage)+' · '+formatPercent(metric.forecastProjectedRatio);
-    els.burn.textContent=metric.burnRate===null?'包含额度已用尽':metric.burnRate.toFixed(2)+'× 剩余安全速度';
-    els.exhaust.textContent=metric.exhaustsAt?formatDateTime(metric.exhaustsAt):'按当前速度不会耗尽';
+    renderQuotaProgress(metric);
     renderChart(metric);renderContributors(metric);
+  }
+
+  function renderQuotaProgress(metric){
+    const usedPercent=Math.max(0,metric.usedRatio*100);
+    const forecastLevel=metric.forecastProjectedRatio>=1?'critical':
+      metric.forecastProjectedRatio>=.8?'warning':'';
+    els.quotaPercent.textContent=formatPercent(metric.usedRatio);
+    els.quotaValues.textContent=formatCompact(metric.used)+' / '+formatCompact(metric.quota)+' '+metric.unit;
+    els.quotaTrack.innerHTML=quotaMeter(metric,true);
+    const scale=quotaMeterScale(usedPercent);
+    els.quotaTrack.setAttribute('aria-valuemax',String(scale));
+    els.quotaTrack.setAttribute('aria-valuenow',String(Math.round(usedPercent)));
+    els.quotaScale.textContent=usedPercent>100?formatPercent(scale/100):'额度 100%';
+    els.quotaForecast.textContent='稳健预计 '+formatPercent(metric.forecastProjectedRatio);
+    els.quotaForecast.className=forecastLevel;
+    if(metric.used>metric.quota){
+      els.quotaBalance.textContent='已超出 '+formatCompact(metric.used-metric.quota)+' '+metric.unit+
+        ' · '+formatPercent(metric.usedRatio-1);
+      els.quotaBalance.className='critical';return
+    }
+    if(metric.forecastProjectedUsage>metric.quota){
+      els.quotaBalance.textContent='稳健预计将超出 '+formatCompact(metric.forecastProjectedUsage-metric.quota)+' '+
+        metric.unit+' · '+formatPercent(metric.forecastProjectedRatio-1);
+      els.quotaBalance.className='critical';return
+    }
+    els.quotaBalance.textContent='剩余 '+formatCompact(metric.quota-metric.used)+' '+metric.unit+
+      ' · 稳健预计期末剩余 '+formatCompact(metric.quota-metric.forecastProjectedUsage)+' '+metric.unit;
+    els.quotaBalance.className=forecastLevel;
+  }
+
+  function quotaMeter(metric,showForecast){
+    const usedPercent=Math.max(0,metric.usedRatio*100);
+    const scale=quotaMeterScale(usedPercent);
+    const level=metric.usedRatio>=1?'critical':metric.usedRatio>=.8?'warning':'';
+    const exceeded=usedPercent>100;
+    const quotaPosition=100/scale*100;
+    const forecastPosition=Math.min(100,Math.max(0,metric.forecastProjectedRatio*100));
+    const marker=exceeded?
+      '<svg class="quota-meter-marker" viewBox="0 0 100 18" preserveAspectRatio="none" aria-hidden="true">'+
+        '<line class="quota-marker" x1="'+quotaPosition.toFixed(2)+'" x2="'+quotaPosition.toFixed(2)+
+        '" y1="0" y2="18"></line></svg>':
+      showForecast?'<svg class="quota-meter-marker" viewBox="0 0 100 18" preserveAspectRatio="none" aria-hidden="true">'+
+        '<line class="forecast-marker" x1="'+forecastPosition.toFixed(2)+'" x2="'+
+        forecastPosition.toFixed(2)+'" y1="0" y2="18"></line></svg>':'';
+    const label=exceeded?
+      '当前使用 '+formatPercent(metric.usedRatio)+'；蓝线表示额度 100%':
+      '当前使用 '+formatPercent(metric.usedRatio)+(showForecast?
+        '；稳健预计 '+formatPercent(metric.forecastProjectedRatio):'');
+    return '<span class="quota-meter"><progress class="quota-progress '+level+'" max="'+scale.toFixed(2)+
+      '" value="'+usedPercent.toFixed(2)+'" aria-label="'+escapeHtml(label)+'"></progress>'+marker+'</span>';
+  }
+
+  function quotaMeterScale(usedPercent){
+    if(usedPercent<=100)return 100;
+    return Math.ceil(usedPercent*1.08/25)*25;
   }
 
   function summaryText(metric){
@@ -351,9 +410,7 @@ export const DASHBOARD_JS = `(() => {
   function renderChart(metric){
     const hourly=selectedGrain==='hourly',plan=buildTrendPlan(metric,hourly);
     const completed=plan.slots.filter((item)=>item.state==='complete');
-    const partial=plan.slots.find((item)=>item.state==='partial');
     const moving=movingAverage(completed,hourly?6:3);
-    const latest=hourly?(completed.at(-1)?.actual||0):(partial?.actual||completed.at(-1)?.actual||0);
     const average=completed.length?completed.reduce((sum,item)=>sum+item.actual,0)/completed.length:0;
     const peak=completed.reduce((highest,item)=>item.actual>highest.actual?item:highest,
       {timestamp:'',actual:0});
@@ -365,12 +422,6 @@ export const DASHBOARD_JS = `(() => {
     els.trendSubtitle.textContent=hourly?'今天 00:00—24:00 UTC；未来小时按'+hourlyBasis+'预测':
       metric.period==='utc_day'?'最近 14 天；今天剩余时间按'+hourlyBasis+'预测':
       '完整账单周期 '+formatDate(metric.periodStart)+' — '+formatDate(metric.periodEnd)+'；未来日期按'+dailyBasis+'预测';
-    els.latestLabel.textContent=hourly?'最近完整小时':'今天（截至目前）';
-    els.averageLabel.textContent=hourly?'今天完整小时平均':metric.period==='utc_day'?'近 14 天日均':'本期完整日平均';
-    els.peakLabel.textContent=hourly?'今天小时峰值':metric.period==='utc_day'?'近 14 天峰值':'本期单日峰值';
-    els.latestRate.textContent=formatCompact(latest)+' '+metric.unit;
-    els.averageRate.textContent=formatCompact(average)+' '+metric.unit;
-    els.peakRate.textContent=formatCompact(peak.actual)+' · '+(peak.timestamp?formatTrendTime(peak.timestamp,hourly):'—');
     [...els.trendTabs.querySelectorAll('[data-grain]')].forEach((tab)=>
       tab.setAttribute('aria-selected',String(tab.dataset.grain===selectedGrain)));
     if(plan.slots.length===0){
@@ -503,7 +554,6 @@ export const DASHBOARD_JS = `(() => {
   function formatCompact(value){return new Intl.NumberFormat('zh-CN',{notation:'compact',maximumFractionDigits:2}).format(value)}
   function formatPercent(value){return new Intl.NumberFormat('zh-CN',{style:'percent',maximumFractionDigits:1}).format(value)}
   function formatDate(value){return new Intl.DateTimeFormat('zh-CN',{month:'short',day:'numeric',timeZone:'UTC'}).format(new Date(value))}
-  function formatDateTime(value){return new Intl.DateTimeFormat('zh-CN',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(value))}
   function relativeTime(value){const minutes=Math.max(0,Math.round((Date.now()-Date.parse(value))/60000));return minutes<1?'刚刚':minutes<60?minutes+' 分钟前':Math.floor(minutes/60)+' 小时前'}
   function shortId(value){return value.length>22?value.slice(0,10)+'…'+value.slice(-5):value}
   function escapeHtml(value){return String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;')}
