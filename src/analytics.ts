@@ -245,7 +245,7 @@ export async function collectQuotaUsage(
     hourlyStart: new Date(
       Math.max(Date.parse(cycle.start), hourlyEndMs - 48 * 60 * 60 * 1_000),
     ).toISOString(),
-    hourlyEnd: new Date(hourlyEndMs).toISOString(),
+    hourlyEnd: measuredAt,
     end: measuredAt,
   };
   const names: ResourceNames = { d1: d1DatabaseNames };

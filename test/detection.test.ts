@@ -27,6 +27,38 @@ describe("quota risk detection", () => {
     expect(evaluation.burnRate).toBeGreaterThan(1);
   });
 
+  it("keeps the alert responsive while smoothing the dashboard forecast", () => {
+    const usage = snapshot(
+      "2026-07-15T12:30:00.000Z",
+      4_000_000,
+      1_000_000,
+    );
+    usage.hourlySeries = metricSeries(
+      "workers.requests",
+      [10, 20, 30, 40, 50, 60, 9_000_000],
+      "2026-07-15T06:00:00.000Z",
+      60 * 60 * 1_000,
+    );
+    usage.dailySeries = metricSeries(
+      "workers.requests",
+      [100, 200, 300, 400, 500, 600, 700],
+      "2026-07-08T00:00:00.000Z",
+      24 * 60 * 60 * 1_000,
+    );
+
+    const evaluation = evaluateMetric("workers.requests", usage);
+
+    expect(evaluation.recentHourlyUsage).toBe(1_000_000);
+    expect(evaluation.risk).toBe("critical");
+    expect(evaluation.forecastHourlySamples).toBe(6);
+    expect(evaluation.forecastHourlyUsage).toBeCloseTo(910 / 21);
+    expect(evaluation.forecastDailySamples).toBe(7);
+    expect(evaluation.forecastDailyUsage).toBe(400);
+    expect(evaluation.forecastProjectedUsage).toBeLessThan(
+      evaluation.projectedUsage,
+    );
+  });
+
   it("opens after two risky samples and repeats only when the reminder is due", () => {
     const first = detectQuotaRisks(
       { metrics: {} },
@@ -130,4 +162,23 @@ function snapshot(
     dailySeries: METRIC_NAMES.map((name) => ({ name, points: [] })),
     failures: [],
   };
+}
+
+function metricSeries(
+  metric: "workers.requests",
+  values: number[],
+  start: string,
+  intervalMs: number,
+): UsageSnapshot["hourlySeries"] {
+  const startMs = Date.parse(start);
+  return METRIC_NAMES.map((name) => ({
+    name,
+    points:
+      name === metric
+        ? values.map((value, index) => ({
+            timestamp: new Date(startMs + intervalMs * index).toISOString(),
+            value,
+          }))
+        : [],
+  }));
 }

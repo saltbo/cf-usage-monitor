@@ -31,6 +31,9 @@ describe("dashboard data", () => {
       used: 30_000_000,
       quota: 50_000_000,
       risk: "critical",
+      forecastHourlyUsage: 900_000,
+      forecastHourlySamples: 1,
+      forecastDailySamples: 1,
     });
     expect(dashboard.products[0].metrics[0].contributors[0].name).toBe(
       "orders-db",

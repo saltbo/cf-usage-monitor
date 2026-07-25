@@ -75,9 +75,9 @@ export const DASHBOARD_HTML = `<!doctype html>
           </div>
           <div class="risk-facts">
             <span><small>本期已用</small><strong id="used-value">—</strong></span>
-            <span><small>预计期末</small><strong id="projected-value">—</strong></span>
-            <span><small>当前消耗速度</small><strong id="burn-value">—</strong></span>
-            <span><small>预计耗尽</small><strong id="exhaust-value">—</strong></span>
+            <span><small>稳健预计期末</small><strong id="projected-value">—</strong></span>
+            <span><small>最近 1 小时速度</small><strong id="burn-value">—</strong></span>
+            <span><small>按最近 1 小时耗尽</small><strong id="exhaust-value">—</strong></span>
           </div>
         </div>
         <div class="trend-heading">
@@ -97,8 +97,11 @@ export const DASHBOARD_HTML = `<!doctype html>
           <span><small id="peak-label">48 小时峰值</small><strong id="peak-rate">—</strong></span>
         </div>
         <div class="chart-legend" aria-label="图例">
-          <span><i class="increment"></i>新增用量</span>
-          <span><i class="moving"></i><b id="moving-label">6 小时移动平均</b></span>
+          <span><i class="increment"></i>实际用量</span>
+          <span><i class="forecast-bars"></i>预测用量</span>
+          <span><i class="trend-line"></i>历史趋势</span>
+          <span><i class="forecast-line"></i>预测趋势</span>
+          <span><i class="forecast-risk"></i>预测超出安全线</span>
           <span><i class="safe"></i><b id="safe-label">安全线</b></span>
         </div>
         <div id="quota-chart" class="quota-chart" role="img"></div>
@@ -217,7 +220,11 @@ h1,h2,p{margin-top:0}.page-heading h1,.detail-heading h1{margin-bottom:7px;font-
 .chart-legend{display:flex;gap:16px;flex-wrap:wrap;margin:14px 0 4px;color:var(--muted);font-size:9px}
 .chart-legend span{display:inline-flex;align-items:center;gap:6px}.chart-legend i{width:18px;height:0;border-top:2px solid}
 .chart-legend b{font-weight:400}.chart-legend .increment{height:8px;border:0;background:var(--teal)}
-.chart-legend .moving{border-color:var(--amber)}.chart-legend .safe{border-color:var(--blue);border-style:dashed}
+.chart-legend .forecast-bars{height:8px;border:1px dashed var(--teal)}
+.chart-legend .trend-line{border-color:var(--amber)}
+.chart-legend .forecast-line{border-color:var(--amber);border-style:dashed}
+.chart-legend .forecast-risk{border-color:var(--red);border-style:dashed}
+.chart-legend .safe{border-color:var(--blue);border-style:dashed}
 .quota-chart{min-height:340px}.quota-chart svg{width:100%;height:auto;display:block}.contributors-section{margin-top:24px}
 .contributors-table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
 table{width:100%;border-collapse:collapse;min-width:760px}th,td{padding:13px 15px;text-align:right;border-bottom:1px solid var(--line);font-size:11px}
@@ -237,7 +244,7 @@ tbody tr:last-child td{border-bottom:0}.instance-name strong{display:block}.inst
   .section-heading{align-items:flex-start;display:block}.section-heading>p{margin-top:5px}.product-card{display:block}
   .product-identity{border-right:0;border-bottom:1px solid var(--line)}.product-metrics{padding:13px}.quota-row{grid-template-columns:1fr auto;gap:7px}
   .quota-progress{grid-column:1/-1;grid-row:2}.quota-numbers{min-width:0}.risk-panel{padding:14px}.risk-facts{grid-template-columns:1fr 1fr}
-  .trend-heading{align-items:flex-start}.trend-stats{grid-template-columns:1fr}.quota-chart{min-height:250px}.brand small{display:none}footer{display:grid}}
+  .trend-heading{align-items:flex-start}.trend-stats{grid-template-columns:1fr}.quota-chart{min-height:300px}.brand small{display:none}footer{display:grid}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}`;
 
 export const DASHBOARD_JS = `(() => {
@@ -256,7 +263,7 @@ export const DASHBOARD_JS = `(() => {
     issueList:$('issues-list'),source:$('source-label'),toast:$('toast'),trendTabs:$('trend-tabs'),
     trendTitle:$('trend-title'),trendSubtitle:$('trend-subtitle'),latestLabel:$('latest-label'),
     latestRate:$('latest-rate'),averageLabel:$('average-label'),averageRate:$('average-rate'),
-    peakLabel:$('peak-label'),peakRate:$('peak-rate'),movingLabel:$('moving-label'),safeLabel:$('safe-label')};
+    peakLabel:$('peak-label'),peakRate:$('peak-rate'),safeLabel:$('safe-label')};
 
   async function load(confirm){
     els.refresh.disabled=true;
@@ -299,7 +306,7 @@ export const DASHBOARD_JS = `(() => {
       return '<div class="quota-row"><span class="quota-label">'+escapeHtml(metric.label)+'</span>'+
         '<span class="quota-progress"><i class="'+barClass+'" style="width:'+percent.toFixed(2)+'%"></i></span>'+
         '<span class="quota-numbers"><b>'+formatCompact(metric.used)+'</b> / '+formatCompact(metric.quota)+
-        ' · 预计 '+formatPercent(metric.projectedRatio)+'</span></div>';
+        ' · 稳健预计 '+formatPercent(metric.forecastProjectedRatio)+'</span></div>';
     }).join('');
     return '<button class="product-card" type="button" data-product="'+escapeHtml(product.name)+'">'+
       '<span class="product-identity"><strong>'+escapeHtml(product.label)+'</strong><small>'+
@@ -319,7 +326,7 @@ export const DASHBOARD_JS = `(() => {
     }
     els.tabs.innerHTML=product.metrics.map((metric)=>'<button class="metric-tab" type="button" role="tab" data-metric="'+
       escapeHtml(metric.metric)+'" aria-selected="'+String(metric.metric===selectedMetric)+'"><span>'+
-      escapeHtml(metric.label)+'</span><small>'+formatPercent(metric.projectedRatio)+' 期末</small></button>').join('');
+      escapeHtml(metric.label)+'</span><small>'+formatPercent(metric.forecastProjectedRatio)+' 稳健期末</small></button>').join('');
     const metric=product.metrics.find((item)=>item.metric===selectedMetric)||product.metrics[0];
     renderMetric(product,metric);
   }
@@ -328,7 +335,7 @@ export const DASHBOARD_JS = `(() => {
     els.riskTitle.textContent=product.label+' · '+metric.label;
     els.riskSummary.textContent=summaryText(metric);
     els.used.textContent=formatCompact(metric.used)+' / '+formatCompact(metric.quota)+' '+metric.unit;
-    els.projected.textContent=formatCompact(metric.projectedUsage)+' · '+formatPercent(metric.projectedRatio);
+    els.projected.textContent=formatCompact(metric.forecastProjectedUsage)+' · '+formatPercent(metric.forecastProjectedRatio);
     els.burn.textContent=metric.burnRate===null?'包含额度已用尽':metric.burnRate.toFixed(2)+'× 剩余安全速度';
     els.exhaust.textContent=metric.exhaustsAt?formatDateTime(metric.exhaustsAt):'按当前速度不会耗尽';
     renderChart(metric);renderContributors(metric);
@@ -342,80 +349,131 @@ export const DASHBOARD_JS = `(() => {
   }
 
   function renderChart(metric){
-    const hourly=selectedGrain==='hourly',samples=normalizedTrend(metric,hourly);
-    const movingWindow=hourly?6:3,moving=movingAverage(samples,movingWindow);
-    const periodHours=Math.max(1,(Date.parse(metric.periodEnd)-Date.parse(metric.periodStart))/3600000);
-    const quotaPace=metric.quota/periodHours*(hourly?1:24);
-    const latest=samples.at(-1)?.value||0;
-    const average=samples.length?samples.reduce((sum,item)=>sum+item.value,0)/samples.length:0;
-    const peak=samples.reduce((highest,item)=>item.value>highest.value?item:highest,{timestamp:'',value:0});
+    const hourly=selectedGrain==='hourly',plan=buildTrendPlan(metric,hourly);
+    const completed=plan.slots.filter((item)=>item.state==='complete');
+    const partial=plan.slots.find((item)=>item.state==='partial');
+    const moving=movingAverage(completed,hourly?6:3);
+    const latest=hourly?(completed.at(-1)?.actual||0):(partial?.actual||completed.at(-1)?.actual||0);
+    const average=completed.length?completed.reduce((sum,item)=>sum+item.actual,0)/completed.length:0;
+    const peak=completed.reduce((highest,item)=>item.actual>highest.actual?item:highest,
+      {timestamp:'',actual:0});
     els.trendTitle.textContent=hourly?'每小时新增用量':'每日新增用量';
-    els.trendSubtitle.textContent=hourly?'最近 48 个完整 UTC 小时':'当前账单周期；今天的数据仍在增长';
+    const hourlyBasis=metric.forecastHourlySamples?
+      '最近 '+metric.forecastHourlySamples+' 个完整小时加权':'最近滚动 1 小时回退';
+    const dailyBasis=metric.forecastDailySamples>=3?
+      '最近 '+metric.forecastDailySamples+' 个完整日平均':'完整日不足 3 天，按小时模型回退';
+    els.trendSubtitle.textContent=hourly?'今天 00:00—24:00 UTC；未来小时按'+hourlyBasis+'预测':
+      metric.period==='utc_day'?'最近 14 天；今天剩余时间按'+hourlyBasis+'预测':
+      '完整账单周期 '+formatDate(metric.periodStart)+' — '+formatDate(metric.periodEnd)+'；未来日期按'+dailyBasis+'预测';
     els.latestLabel.textContent=hourly?'最近完整小时':'今天（截至目前）';
-    els.averageLabel.textContent=hourly?'48 小时平均':'本期日均';
-    els.peakLabel.textContent=hourly?'48 小时峰值':'本期单日峰值';
+    els.averageLabel.textContent=hourly?'今天完整小时平均':metric.period==='utc_day'?'近 14 天日均':'本期完整日平均';
+    els.peakLabel.textContent=hourly?'今天小时峰值':metric.period==='utc_day'?'近 14 天峰值':'本期单日峰值';
     els.latestRate.textContent=formatCompact(latest)+' '+metric.unit;
     els.averageRate.textContent=formatCompact(average)+' '+metric.unit;
-    els.peakRate.textContent=formatCompact(peak.value)+' · '+(peak.timestamp?formatTrendTime(peak.timestamp,hourly):'—');
-    els.movingLabel.textContent=(hourly?'6 小时':'3 天')+'移动平均';
+    els.peakRate.textContent=formatCompact(peak.actual)+' · '+(peak.timestamp?formatTrendTime(peak.timestamp,hourly):'—');
     [...els.trendTabs.querySelectorAll('[data-grain]')].forEach((tab)=>
       tab.setAttribute('aria-selected',String(tab.dataset.grain===selectedGrain)));
-    if(samples.length===0){
-      els.safeLabel.textContent='安全线 '+formatCompact(quotaPace);
+    if(plan.slots.length===0){
+      els.safeLabel.textContent='安全线 '+formatCompact(plan.safePerSlot);
       els.chart.innerHTML='<div class="empty-row">Cloudflare 暂无这个时间范围的趋势数据</div>';
       els.chart.setAttribute('aria-label',metric.label+'暂无趋势数据');return;
     }
-    const width=1040,height=350,m={top:24,right:30,bottom:48,left:72};
-    const innerW=width-m.left-m.right,innerH=height-m.top-m.bottom;
-    const observedMax=Math.max(...samples.map((item)=>item.value),...moving,1);
-    const max=observedMax*1.12,clippedPace=quotaPace>max;
-    els.safeLabel.textContent='安全线 '+formatCompact(quotaPace)+
+    const width=1040,height=360,m={right:36,left:72};
+    const innerW=width-m.left-m.right,upperTop=24,upperH=272,bottomY=height-18;
+    const actualAndForecast=plan.slots.map((item)=>item.actual+item.forecast);
+    const observedMax=Math.max(...actualAndForecast,...moving.map((item)=>item.value),1);
+    const upperMax=observedMax*1.12,clippedPace=plan.safePerSlot>upperMax;
+    els.safeLabel.textContent='安全线 '+formatCompact(plan.safePerSlot)+
       (clippedPace?'（高于图表范围）':'');
-    const step=innerW/samples.length,barWidth=Math.max(3,step*.66);
+    els.chart.style.minHeight='340px';
+    const step=innerW/plan.slots.length,barWidth=Math.max(3,step*.62);
     const x=(index)=>m.left+step*index+step/2;
-    const y=(value)=>m.top+innerH-(value/max)*innerH;
+    const upperY=(value)=>upperTop+upperH-(value/upperMax)*upperH;
     let svg='<svg viewBox="0 0 '+width+' '+height+'" aria-hidden="true">';
-    [0,.25,.5,.75,1].forEach((part)=>{const value=max*part,py=y(value);svg+='<line x1="'+m.left+'" y1="'+py+
+    [0,.25,.5,.75,1].forEach((part)=>{const value=upperMax*part,py=upperY(value);svg+='<line x1="'+m.left+'" y1="'+py+
       '" x2="'+(width-m.right)+'" y2="'+py+'" stroke="#243144"/><text x="'+(m.left-10)+'" y="'+(py+4)+
       '" text-anchor="end" fill="#9aa8ba" font-size="10">'+escapeHtml(formatCompact(value))+'</text>'});
-    const paceY=clippedPace?m.top+2:y(quotaPace);
-    const paceLabelY=clippedPace?paceY+12:Math.max(m.top+10,paceY-7);
-    samples.forEach((item,index)=>{const partial=!hourly&&index===samples.length-1&&
-      sameUtcDay(item.timestamp,data.lastUpdated);const isPeak=item.timestamp===peak.timestamp&&item.value>0;
-      const top=y(item.value),heightValue=Math.max(1,m.top+innerH-top);
-      svg+='<rect x="'+(x(index)-barWidth/2).toFixed(1)+'" y="'+top.toFixed(1)+'" width="'+barWidth.toFixed(1)+
-        '" height="'+heightValue.toFixed(1)+'" rx="2" fill="'+(partial?'#fbbf24':'#5eead4')+'" opacity="'+
-        (isPeak?'1':'.72')+'"><title>'+escapeHtml(formatTrendTime(item.timestamp,hourly)+' · '+formatCompact(item.value)+
-        ' '+metric.unit+(partial?'（进行中）':''))+'</title></rect>'});
-    if(moving.length>1){const points=moving.map((value,index)=>x(index).toFixed(1)+','+y(value).toFixed(1)).join(' ');
-      svg+='<polyline points="'+points+'" fill="none" stroke="#fbbf24" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>'}
+    const paceY=clippedPace?upperTop+2:upperY(plan.safePerSlot);
+    const paceLabelY=clippedPace?paceY+12:Math.max(upperTop+10,paceY-7);
+    plan.slots.forEach((item,index)=>{
+      const actualTop=upperY(item.actual),baseY=upperY(0);
+      if(item.forecast>0){const forecastValue=item.actual+item.forecast,forecastTop=upperY(forecastValue);
+        svg+='<rect x="'+(x(index)-barWidth/2).toFixed(1)+'" y="'+forecastTop.toFixed(1)+
+          '" width="'+barWidth.toFixed(1)+'" height="'+Math.max(1,baseY-forecastTop).toFixed(1)+
+          '" rx="2" fill="none" stroke="#5eead4" stroke-width="1.2" stroke-dasharray="4 3" opacity=".72"><title>'+
+          escapeHtml(formatTrendTime(item.timestamp,hourly)+' · 预测 '+formatCompact(forecastValue)+' '+metric.unit)+
+          '</title></rect>'}
+      if(item.actual>0){svg+='<rect x="'+(x(index)-barWidth/2).toFixed(1)+'" y="'+actualTop.toFixed(1)+
+        '" width="'+barWidth.toFixed(1)+'" height="'+Math.max(1,baseY-actualTop).toFixed(1)+
+        '" rx="2" fill="#5eead4" opacity="'+
+        (item.timestamp===peak.timestamp?'1':item.state==='partial'?'.48':'.75')+'"><title>'+escapeHtml(formatTrendTime(item.timestamp,hourly)+
+        ' · 实际 '+formatCompact(item.actual)+' '+metric.unit+(item.state==='partial'?'（进行中）':''))+'</title></rect>'}
+      if(hourly&&item.state==='partial'){svg+='<text x="'+x(index).toFixed(1)+'" y="'+Math.max(upperTop+12,actualTop-7).toFixed(1)+
+        '" text-anchor="middle" fill="#9aa8ba" font-size="9">进行中</text>'}
+    });
+    if(moving.length>1){svg+='<polyline points="'+moving.map((item)=>
+      x(item.index).toFixed(1)+','+upperY(item.value).toFixed(1)).join(' ')+
+      '" fill="none" stroke="#fbbf24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>'}
+    const forecastPoints=[];
+    if(moving.length)forecastPoints.push({x:x(moving.at(-1).index),value:moving.at(-1).value});
+    plan.slots.forEach((item,index)=>{if(item.state!=='complete')forecastPoints.push({
+      x:x(index),value:item.actual+item.forecast,timestamp:item.timestamp})});
+    const forecastSegment=(from,to,color)=>'<line x1="'+from.x.toFixed(1)+'" y1="'+upperY(from.value).toFixed(1)+
+      '" x2="'+to.x.toFixed(1)+'" y2="'+upperY(to.value).toFixed(1)+'" stroke="'+color+
+      '" stroke-width="2.2" stroke-dasharray="7 5" stroke-linecap="round"/>';
+    for(let index=1;index<forecastPoints.length;index++){
+      const from=forecastPoints[index-1],to=forecastPoints[index];
+      const crosses=(from.value-plan.safePerSlot)*(to.value-plan.safePerSlot)<0;
+      if(!crosses){svg+=forecastSegment(from,to,from.value>plan.safePerSlot||to.value>plan.safePerSlot?'#fb7185':'#fbbf24');continue}
+      const ratio=(plan.safePerSlot-from.value)/(to.value-from.value);
+      const crossing={x:from.x+(to.x-from.x)*ratio,value:plan.safePerSlot};
+      svg+=forecastSegment(from,crossing,from.value>plan.safePerSlot?'#fb7185':'#fbbf24');
+      svg+=forecastSegment(crossing,to,to.value>plan.safePerSlot?'#fb7185':'#fbbf24');
+    }
     svg+='<line x1="'+m.left+'" y1="'+paceY+'" x2="'+(width-m.right)+'" y2="'+paceY+
       '" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="6 5"/>'+
       '<rect x="'+(m.left+2)+'" y="'+(paceLabelY-11)+'" width="128" height="16" rx="3" fill="#0d1420" stroke="#60a5fa"/>'+
       '<text x="'+(m.left+8)+'" y="'+paceLabelY+'" text-anchor="start" fill="#dbeafe" font-size="9">'+
-      (clippedPace?'↑ ':'')+'安全线 '+escapeHtml(formatCompact(quotaPace))+'</text>';
-    const tickEvery=Math.max(1,Math.ceil(samples.length/6));
-    samples.forEach((item,index)=>{if(index%tickEvery!==0&&index!==samples.length-1)return;
-      svg+='<text x="'+x(index)+'" y="'+(height-16)+'" text-anchor="middle" fill="#9aa8ba" font-size="9">'+
+      (clippedPace?'↑ ':'')+'安全线 '+escapeHtml(formatCompact(plan.safePerSlot))+'</text>';
+    const nowX=m.left+Math.max(0,Math.min(1,(plan.now-plan.start)/(plan.end-plan.start)))*innerW;
+    svg+='<line x1="'+nowX+'" y1="'+upperTop+'" x2="'+nowX+'" y2="'+(upperTop+upperH)+
+      '" stroke="#f8fafc" stroke-width="1" stroke-dasharray="2 5" opacity=".5"/>'+
+      '<text x="'+Math.min(width-m.right-24,nowX+5)+'" y="'+(upperTop+12)+'" fill="#f8fafc" font-size="9">现在</text>';
+    const tickEvery=Math.max(1,Math.ceil(plan.slots.length/(hourly?6:7)));
+    plan.slots.forEach((item,index)=>{if(index%tickEvery!==0&&index!==plan.slots.length-1)return;
+      svg+='<text x="'+x(index)+'" y="'+bottomY+'" text-anchor="middle" fill="#9aa8ba" font-size="9">'+
         escapeHtml(formatTrendTime(item.timestamp,hourly))+'</text>'});
     svg+='</svg>';els.chart.innerHTML=svg;
-    els.chart.setAttribute('aria-label',metric.label+'：'+(hourly?'最近完整小时':'今天')+'新增 '+formatCompact(latest)+
-      '，平均 '+formatCompact(average)+'，峰值 '+formatCompact(peak.value)+'，安全线 '+formatCompact(quotaPace));
+    const plannedTotal=plan.slots.reduce((sum,item)=>sum+item.actual+item.forecast,0);
+    els.chart.setAttribute('aria-label',metric.label+'：'+(hourly?'今天':'本期')+'完整时段平均 '+formatCompact(average)+
+      '，峰值 '+formatCompact(peak.actual)+'，安全线 '+formatCompact(plan.safePerSlot)+
+      '，图中预计总量 '+formatCompact(plannedTotal));
   }
 
-  function normalizedTrend(metric,hourly){
-    const source=hourly?metric.hourly:metric.daily,byTime=new Map(source.map((item)=>[Date.parse(item.timestamp),item.value]));
-    const unit=hourly?3600000:86400000,end=hourly
-      ?Math.floor(Date.parse(data.lastUpdated)/unit)*unit
-      :Math.floor(Date.parse(data.lastUpdated)/unit)*unit+unit;
-    const start=hourly?end-48*unit:Date.parse(data.cycle.start);
-    const points=[];for(let time=start;time<end;time+=unit){
-      points.push({timestamp:new Date(time).toISOString(),value:byTime.get(time)||0});
-    }return points;
+  function buildTrendPlan(metric,hourly){
+    const hour=3600000,day=24*hour,unit=hourly?hour:day,now=Date.parse(data.lastUpdated);
+    const dayStart=Math.floor(now/day)*day;
+    const repeatingDaily=!hourly&&metric.period==='utc_day';
+    const start=hourly?dayStart:repeatingDaily?Math.max(Date.parse(data.cycle.start),dayStart-13*day):
+      Date.parse(metric.periodStart);
+    const end=hourly?dayStart+day:repeatingDaily?dayStart+day:Date.parse(metric.periodEnd);
+    const source=hourly?metric.hourly:metric.daily;
+    const byTime=new Map(source.map((item)=>[Date.parse(item.timestamp),item.value]));
+    const periodHours=Math.max(1,(Date.parse(metric.periodEnd)-Date.parse(metric.periodStart))/hour);
+    const safePerSlot=repeatingDaily?metric.quota:metric.quota*(unit/hour)/periodHours;
+    const slots=[];for(let time=start,index=0;time<end;time+=unit,index++){
+      const slotEnd=time+unit,state=slotEnd<=now?'complete':time<now?'partial':'future';
+      const actual=time<now?(byTime.get(time)||0):0;
+      const remainingHours=state==='partial'?Math.max(0,(slotEnd-now)/hour):state==='future'?unit/hour:0;
+      const forecast=state==='partial'?metric.forecastHourlyUsage*remainingHours:
+        state==='future'?hourly?metric.forecastHourlyUsage:metric.forecastDailyUsage:0;
+      slots.push({index,timestamp:new Date(time).toISOString(),start:time,end:slotEnd,state,actual,
+        forecast});
+    }
+    return {slots,start,end,now,safePerSlot};
   }
-  function movingAverage(samples,size){return samples.map((_,index)=>{const window=samples.slice(Math.max(0,index-size+1),index+1);
-    return window.reduce((sum,item)=>sum+item.value,0)/window.length})}
-  function sameUtcDay(left,right){return String(left).slice(0,10)===String(right).slice(0,10)}
+  function movingAverage(samples,size){return samples.map((item,index)=>{const window=samples.slice(Math.max(0,index-size+1),index+1);
+    return {index:item.index,value:window.reduce((sum,sample)=>sum+sample.actual,0)/window.length}})}
   function formatTrendTime(value,hourly){return new Intl.DateTimeFormat('zh-CN',hourly?
     {month:'numeric',day:'numeric',hour:'2-digit',hour12:false,timeZone:'UTC'}:
     {month:'numeric',day:'numeric',timeZone:'UTC'}).format(new Date(value))}
