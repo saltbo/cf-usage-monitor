@@ -56,4 +56,20 @@ describe("dashboard page", () => {
     expect(DASHBOARD_CSS).toContain(".instance-benchmark");
     expect(DASHBOARD_CSS).toContain(".instance-chart");
   });
+
+  it("separates quota risk from alert policy and recovery state", () => {
+    expect(DASHBOARD_JS).toContain(
+      "if(metric.alertStatus==='track_only')",
+    );
+    expect(DASHBOARD_JS).toContain(
+      "if(metric.alertStatus==='active')",
+    );
+    expect(DASHBOARD_JS).toContain(
+      "if(metric.alertStatus==='recovered')",
+    );
+    expect(DASHBOARD_JS).toContain("仅观察");
+    expect(DASHBOARD_JS).toContain("告警已恢复");
+    expect(DASHBOARD_JS).toContain("alertStatusLabel(metric)");
+    expect(DASHBOARD_CSS).toContain(".quota-label small.active");
+  });
 });

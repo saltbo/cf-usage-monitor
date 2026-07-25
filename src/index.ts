@@ -8,6 +8,7 @@ import {
 } from "./dashboard-page";
 import {
   detectQuotaRisks,
+  type AlertPolicy,
   SAMPLE_INTERVAL_MINUTES,
   type DetectionConfig,
   type MonitorState,
@@ -196,7 +197,27 @@ function readConfig(env: Env): DetectionConfig {
       env.REMINDER_MINUTES,
       "REMINDER_MINUTES",
     ),
+    policies: readAlertPolicies(env.USAGE_ALERT_POLICIES),
   };
+}
+
+function readAlertPolicies(
+  value: unknown,
+): Partial<Record<MetricName, AlertPolicy>> {
+  const source = asRecord(value, "USAGE_ALERT_POLICIES");
+  return Object.fromEntries(
+    Object.entries(source).map(([metric, policy]) => {
+      if (!METRIC_NAMES.includes(metric as MetricName)) {
+        throw new Error(`USAGE_ALERT_POLICIES.${metric} is not a supported metric`);
+      }
+      if (policy !== "strict" && policy !== "track_only") {
+        throw new Error(
+          `USAGE_ALERT_POLICIES.${metric} must be strict or track_only`,
+        );
+      }
+      return [metric, policy];
+    }),
+  );
 }
 
 function readD1DatabaseNames(env: Env): Record<string, string> {

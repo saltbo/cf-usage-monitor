@@ -38,7 +38,7 @@ describe("email notifications", () => {
       recoveries: [{ ...alert(), projectedRatio: 0.7 }],
     };
     expect(buildEmail(recovery).text).toContain(
-      "projected 70.0% at period end",
+      "is below baseline 67,204.3",
     );
 
     const failure: MonitorErrorEvent = {
@@ -85,6 +85,7 @@ function alert(): QuotaAlert {
     quota: 50_000_000,
     recentHourlyUsage: 100_000,
     safeHourlyUsage: 20_000,
+    baselineHourlyUsage: 67_204.3,
     burnRate: 5,
     usedRatio: 0.6,
     projectedUsage: 80_000_000,

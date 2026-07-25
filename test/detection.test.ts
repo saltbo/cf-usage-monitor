@@ -11,6 +11,7 @@ const config: DetectionConfig = {
   alertAfterSamples: 2,
   recoverySamples: 3,
   reminderMinutes: 60,
+  policies: {},
 };
 
 describe("quota risk detection", () => {
@@ -122,7 +123,7 @@ describe("quota risk detection", () => {
     expect(reminder.alerts[0]?.notificationCount).toBe(2);
   });
 
-  it("keeps the incident open until three safe forecasts recover", () => {
+  it("keeps the incident open until three samples stay below the baseline", () => {
     const opened = openIncident();
     const one = detectQuotaRisks(
       opened,
@@ -147,6 +148,76 @@ describe("quota risk detection", () => {
       notificationCount: 1,
     });
     expect(three.state.metrics["workers.requests"]?.incident).toBeUndefined();
+    expect(
+      three.state.metrics["workers.requests"]?.recoveredForPeriod,
+    ).toBe(true);
+  });
+
+  it("does not reopen a historical overage until the hourly pace rises again", () => {
+    const exceeded = detectQuotaRisks(
+      { metrics: {} },
+      snapshot("2026-07-15T00:00:00.000Z", 10_100_000, 0),
+      config,
+    );
+    const one = detectQuotaRisks(
+      exceeded.state,
+      snapshot("2026-07-15T00:10:00.000Z", 10_100_000, 0),
+      config,
+    );
+    const two = detectQuotaRisks(
+      one.state,
+      snapshot("2026-07-15T00:20:00.000Z", 10_100_000, 0),
+      config,
+    );
+    const recovered = detectQuotaRisks(
+      two.state,
+      snapshot("2026-07-15T00:30:00.000Z", 10_100_000, 0),
+      config,
+    );
+    const staysQuiet = detectQuotaRisks(
+      recovered.state,
+      snapshot("2026-07-15T00:40:00.000Z", 10_100_000, 0),
+      config,
+    );
+    const highOnce = detectQuotaRisks(
+      staysQuiet.state,
+      snapshot("2026-07-15T00:50:00.000Z", 10_120_000, 20_000),
+      config,
+    );
+    const reopened = detectQuotaRisks(
+      highOnce.state,
+      snapshot("2026-07-15T01:00:00.000Z", 10_140_000, 20_000),
+      config,
+    );
+
+    expect(exceeded.alerts).toHaveLength(1);
+    expect(recovered.recoveries).toHaveLength(1);
+    expect(staysQuiet.alerts).toEqual([]);
+    expect(staysQuiet.state.metrics["workers.requests"]?.incident).toBeUndefined();
+    expect(highOnce.alerts).toEqual([]);
+    expect(reopened.alerts).toHaveLength(1);
+  });
+
+  it("tracks usage without opening incidents for track-only metrics", () => {
+    const strict = detectQuotaRisks(
+      { metrics: {} },
+      snapshot("2026-07-15T00:00:00.000Z", 10_100_000, 100_000),
+      config,
+    );
+    const trackOnly = detectQuotaRisks(
+      strict.state,
+      snapshot("2026-07-15T00:10:00.000Z", 10_200_000, 100_000),
+      {
+        ...config,
+        policies: { "workers.requests": "track_only" },
+      },
+    );
+
+    expect(strict.alerts).toHaveLength(1);
+    expect(trackOnly.alerts).toEqual([]);
+    expect(
+      trackOnly.state.metrics["workers.requests"]?.incident,
+    ).toBeUndefined();
   });
 });
 

@@ -33,6 +33,9 @@
     "ALERT_AFTER_SAMPLES": "2",
     "RECOVERY_SAMPLES": "3",
     "REMINDER_MINUTES": "60",
+    "USAGE_ALERT_POLICIES": {
+      "r2.storage_gb_month": "track_only"
+    },
     "D1_DATABASE_NAMES": {
       "ec2cf4d8-ce8e-4dcf-bd7f-71973df5f5a3": "sublyra-appbase",
       "be751858-3f8f-4783-aee6-db2cfe33fb31": "zme",

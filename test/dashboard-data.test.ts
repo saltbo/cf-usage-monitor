@@ -10,6 +10,7 @@ const config: DetectionConfig = {
   alertAfterSamples: 2,
   recoverySamples: 3,
   reminderMinutes: 60,
+  policies: { "r2.storage_gb_month": "track_only" },
 };
 
 describe("dashboard data", () => {
@@ -31,6 +32,7 @@ describe("dashboard data", () => {
       used: 30_000_000,
       quota: 50_000_000,
       risk: "critical",
+      alertStatus: "pending",
       forecastHourlyUsage: 900_000,
       forecastHourlySamples: 1,
       forecastDailySamples: 1,
@@ -44,6 +46,12 @@ describe("dashboard data", () => {
     expect(dashboard.products[0].metrics[0].daily).toEqual([
       { timestamp: "2026-07-14T00:00:00.000Z", value: 3_500_000 },
     ]);
+    expect(
+      dashboard.products
+        .find((product) => product.name === "r2")
+        ?.metrics.find((metric) => metric.metric === "r2.storage_gb_month")
+        ?.alertStatus,
+    ).toBe("track_only");
   });
 });
 

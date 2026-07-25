@@ -7,6 +7,7 @@ import {
   type UsageSnapshot,
 } from "./metrics";
 import type {
+  AlertPolicy,
   DetectionConfig,
   MonitorState,
   QuotaEvaluation,
@@ -17,6 +18,8 @@ export interface DashboardMetric extends QuotaEvaluation {
   label: string;
   unit: string;
   period: "billing_cycle" | "utc_day";
+  alertPolicy: AlertPolicy;
+  alertStatus: "normal" | "pending" | "active" | "recovered" | "track_only";
   incident: {
     active: boolean;
     startedAt: string;
@@ -127,11 +130,24 @@ function buildMetric(
   const definition = METRICS[evaluation.metric];
   const metricState = state.metrics[evaluation.metric];
   const incident = metricState?.incident;
+  const alertPolicy = config.policies[evaluation.metric] ?? "strict";
+  const alertStatus =
+    alertPolicy === "track_only"
+      ? "track_only"
+      : incident
+        ? "active"
+        : metricState?.recoveredForPeriod
+          ? "recovered"
+          : (metricState?.riskStreak ?? 0) > 0
+            ? "pending"
+            : "normal";
   return {
     ...evaluation,
     label: definition.label,
     unit: definition.unit,
     period: definition.period,
+    alertPolicy,
+    alertStatus,
     incident: incident
       ? {
           active: true,

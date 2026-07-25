@@ -209,7 +209,8 @@ h1,h2,p{margin-top:0}.page-heading h1{margin-bottom:7px;font-size:clamp(25px,4vw
 .product-identity strong{display:block;margin-bottom:5px;font-size:16px}.product-identity small{color:var(--muted);font-size:12px;line-height:1.45}
 .product-metrics{display:grid;align-content:center;gap:11px;padding:14px 18px}
 .quota-row{display:grid;grid-template-columns:minmax(130px,.9fr) minmax(150px,1.4fr) auto;align-items:center;gap:14px}
-.quota-label{font-size:13px;font-weight:650}.quota-meter{position:relative;width:100%;height:9px;display:block}
+.quota-label{font-size:13px;font-weight:650}.quota-label small{margin-left:7px;color:var(--muted);font-size:10px;font-weight:700}
+.quota-label small.active{color:#fecdd3}.quota-label small.recovered{color:var(--teal)}.quota-meter{position:relative;width:100%;height:9px;display:block}
 .quota-progress{width:100%;height:100%;display:block;overflow:hidden;appearance:none;-webkit-appearance:none;
   border:0;background:#202c3d;border-radius:999px}
 .quota-progress::-webkit-progress-bar{background:#202c3d;border-radius:999px}
@@ -369,7 +370,7 @@ export const DASHBOARD_JS = `(() => {
 
   function productCard(product){
     const metrics=product.metrics.map((metric)=>{
-      return '<div class="quota-row"><span class="quota-label">'+escapeHtml(metric.label)+'</span>'+
+      return '<div class="quota-row"><span class="quota-label">'+escapeHtml(metric.label)+alertStatusLabel(metric)+'</span>'+
         quotaMeter(metric,true)+
         '<span class="quota-numbers"><b>'+formatPercent(metric.usedRatio)+'</b></span></div>';
     }).join('');
@@ -378,6 +379,12 @@ export const DASHBOARD_JS = `(() => {
       escapeHtml(product.description)+'</small></span><span class="product-metrics">'+metrics+'</span>'+
       '<span class="product-action"><span class="risk-chip risk-'+product.risk+'">'+riskLabel[product.risk]+
       '</span><span class="arrow" aria-hidden="true">→</span></span></button>';
+  }
+
+  function alertStatusLabel(metric){
+    const labels={track_only:'仅观察',active:'告警中',recovered:'已恢复',pending:'确认中'};
+    const label=labels[metric.alertStatus];
+    return label?'<small class="'+escapeHtml(metric.alertStatus)+'">'+label+'</small>':'';
   }
 
   function renderDetail(product){
@@ -597,6 +604,10 @@ export const DASHBOARD_JS = `(() => {
   }
 
   function summaryText(metric){
+    if(metric.alertStatus==='track_only')return '仅观察：继续展示额度和预测，但不会发送额度告警。';
+    if(metric.alertStatus==='active')return '告警中：每小时持续提醒；最近一小时速度连续 3 次低于基础安全线后恢复。';
+    if(metric.alertStatus==='recovered')return '告警已恢复：本账期历史超额仍保留展示，只有速度再次持续超过基础安全线才会重开。';
+    if(metric.alertStatus==='pending')return '风险确认中：连续 2 次达到超额风险后将发送告警。';
     if(metric.risk==='exceeded')return '本期用量已经超过包含额度，超额计费可能已经产生。';
     if(metric.risk==='critical')return '按最近一小时的消耗速度继续运行，预计将在本期结束前超过额度。';
     if(metric.risk==='warning')return '额度或期末预测已达到 80%，建议持续关注增长速度。';

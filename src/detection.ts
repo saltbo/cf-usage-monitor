@@ -15,6 +15,7 @@ const FORECAST_DAILY_BUCKETS = 7;
 const FORECAST_MIN_DAILY_BUCKETS = 3;
 
 export type RiskLevel = "normal" | "warning" | "critical" | "exceeded";
+export type AlertPolicy = "strict" | "track_only";
 
 export interface QuotaEvaluation {
   metric: MetricName;
@@ -22,6 +23,7 @@ export interface QuotaEvaluation {
   quota: number;
   recentHourlyUsage: number;
   safeHourlyUsage: number;
+  baselineHourlyUsage: number;
   burnRate: number | null;
   usedRatio: number;
   projectedUsage: number;
@@ -41,6 +43,7 @@ export interface QuotaEvaluation {
 }
 
 export interface MetricState {
+  periodStart?: string;
   samples: Array<{
     windowEnd: string;
     used: number;
@@ -48,6 +51,7 @@ export interface MetricState {
   }>;
   riskStreak: number;
   recoveryStreak: number;
+  recoveredForPeriod?: boolean;
   incident?: {
     startedAt: string;
     lastNotifiedAt: string;
@@ -78,6 +82,7 @@ export interface DetectionConfig {
   alertAfterSamples: number;
   recoverySamples: number;
   reminderMinutes: number;
+  policies: Partial<Record<MetricName, AlertPolicy>>;
 }
 
 export interface QuotaAlert extends QuotaEvaluation {
@@ -118,6 +123,16 @@ export function detectQuotaRisks(
       riskStreak: 0,
       recoveryStreak: 0,
     };
+    if (
+      metricState.periodStart &&
+      metricState.periodStart !== evaluation.periodStart
+    ) {
+      metricState.riskStreak = 0;
+      metricState.recoveryStreak = 0;
+      metricState.recoveredForPeriod = false;
+      delete metricState.incident;
+    }
+    metricState.periodStart = evaluation.periodStart;
     metricState.samples = [
       ...metricState.samples,
       {
@@ -128,18 +143,33 @@ export function detectQuotaRisks(
     ].slice(-HISTORY_LIMIT);
     state.metrics[evaluation.metric] = metricState;
 
-    const atRisk =
+    const policy = alertPolicyFor(config, evaluation.metric);
+    if (policy === "track_only") {
+      metricState.riskStreak = 0;
+      metricState.recoveryStreak = 0;
+      metricState.recoveredForPeriod = false;
+      delete metricState.incident;
+      continue;
+    }
+
+    const quotaAtRisk =
       evaluation.risk === "critical" || evaluation.risk === "exceeded";
-    metricState.riskStreak = atRisk ? metricState.riskStreak + 1 : 0;
+    const aboveBaseline =
+      evaluation.recentHourlyUsage >= evaluation.baselineHourlyUsage;
+    const openingRisk =
+      quotaAtRisk &&
+      (!metricState.recoveredForPeriod || aboveBaseline);
+    metricState.riskStreak = openingRisk ? metricState.riskStreak + 1 : 0;
 
     if (metricState.incident) {
       metricState.incident.worstProjectedRatio = Math.max(
         metricState.incident.worstProjectedRatio,
         evaluation.projectedRatio,
       );
-      metricState.recoveryStreak = atRisk
-        ? 0
-        : metricState.recoveryStreak + 1;
+      metricState.recoveryStreak =
+        evaluation.recentHourlyUsage < evaluation.baselineHourlyUsage
+          ? metricState.recoveryStreak + 1
+          : 0;
 
       if (metricState.recoveryStreak >= config.recoverySamples) {
         recoveries.push({
@@ -154,6 +184,7 @@ export function detectQuotaRisks(
           worstProjectedRatio: metricState.incident.worstProjectedRatio,
         };
         delete metricState.incident;
+        metricState.recoveredForPeriod = true;
         metricState.recoveryStreak = 0;
         continue;
       }
@@ -161,7 +192,7 @@ export function detectQuotaRisks(
       const reminderDue =
         nowMs - Date.parse(metricState.incident.lastNotifiedAt) >=
         config.reminderMinutes * 60 * 1_000;
-      if (atRisk && reminderDue) {
+      if (metricState.recoveryStreak === 0 && reminderDue) {
         metricState.incident.notificationCount += 1;
         metricState.incident.lastNotifiedAt = snapshot.measuredAt;
         alerts.push({
@@ -174,9 +205,12 @@ export function detectQuotaRisks(
     }
 
     const shouldOpen =
-      evaluation.risk === "exceeded" ||
-      (evaluation.risk === "critical" &&
-        metricState.riskStreak >= config.alertAfterSamples);
+      metricState.recoveredForPeriod
+        ? openingRisk &&
+          metricState.riskStreak >= config.alertAfterSamples
+        : evaluation.risk === "exceeded" ||
+          (evaluation.risk === "critical" &&
+            metricState.riskStreak >= config.alertAfterSamples);
     if (!shouldOpen) {
       continue;
     }
@@ -187,6 +221,7 @@ export function detectQuotaRisks(
       notificationCount: 1,
       worstProjectedRatio: evaluation.projectedRatio,
     };
+    metricState.recoveredForPeriod = false;
     alerts.push({
       ...evaluation,
       incidentStartedAt: snapshot.measuredAt,
@@ -212,6 +247,11 @@ export function evaluateMetric(
   const used = usage?.value ?? 0;
   const recentHourlyUsage = recent?.value ?? 0;
   const quota = definition.quota;
+  const periodHours = Math.max(
+    1,
+    (Date.parse(period.end) - Date.parse(period.start)) / HOUR_MS,
+  );
+  const baselineHourlyUsage = quota / periodHours;
   const remainingHours = Math.max(
     0,
     (Date.parse(period.end) - Date.parse(snapshot.measuredAt)) / HOUR_MS,
@@ -261,6 +301,7 @@ export function evaluateMetric(
     quota,
     recentHourlyUsage,
     safeHourlyUsage,
+    baselineHourlyUsage,
     burnRate,
     usedRatio,
     projectedUsage,
@@ -273,6 +314,13 @@ export function evaluateMetric(
     contributors: usage?.contributors ?? [],
     recentContributors: recent?.contributors ?? [],
   };
+}
+
+export function alertPolicyFor(
+  config: DetectionConfig,
+  metric: MetricName,
+): AlertPolicy {
+  return config.policies[metric] ?? "strict";
 }
 
 function buildStableForecast(

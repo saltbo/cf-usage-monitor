@@ -7,6 +7,7 @@ const config: DetectionConfig = {
   alertAfterSamples: 2,
   recoverySamples: 3,
   reminderMinutes: 60,
+  policies: {},
 };
 
 describe("latest dashboard", () => {

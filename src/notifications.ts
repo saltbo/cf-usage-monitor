@@ -79,12 +79,7 @@ export function buildEmail(event: AlertEvent): EmailContent {
     event.type === "cloudflare.quota_risk"
       ? event.alerts.map(alertLine)
       : event.type === "cloudflare.quota_recovered"
-        ? event.recoveries.map(
-            (recovery) =>
-              `${metricTitle(recovery.metric)} recovered; projected ${formatPercent(
-                recovery.projectedRatio,
-              )} at period end after ${recovery.notificationCount} alert(s)`,
-          )
+        ? event.recoveries.map(recoveryLine)
         : event.errors.map(
             (error) => `${error.collector}: ${error.message}`,
           );
@@ -109,6 +104,17 @@ export function buildEmail(event: AlertEvent): EmailContent {
     `<ul>${details.map((detail) => `<li>${escapeHtml(detail)}</li>`).join("")}</ul>`,
   ].join("");
   return { subject, text, html };
+}
+
+function recoveryLine(recovery: QuotaRecovery): string {
+  return (
+    `${metricTitle(recovery.metric)} recovered; recent hourly usage ` +
+    `${formatNumber(recovery.recentHourlyUsage)} ${
+      METRICS[recovery.metric].unit
+    } is below baseline ${formatNumber(recovery.baselineHourlyUsage)}; ` +
+    `current quota usage ${formatPercent(recovery.usedRatio)} after ` +
+    `${recovery.notificationCount} alert(s)`
+  );
 }
 
 function alertLine(alert: QuotaAlert): string {
