@@ -1,5 +1,6 @@
 import { collectQuotaUsage } from "../analytics";
 import { loadBillingCycle } from "../billing";
+import { loadBillingCosts, productCost } from "../costs";
 import { buildDashboardData } from "../dashboard-data";
 import { detectQuotaRisks, type MonitorState } from "../detection";
 import type { ProductName } from "../metrics";
@@ -20,24 +21,28 @@ export async function loadProductDashboard(
 ): Promise<ProductDashboardData> {
   const measuredAt = new Date(now - ANALYTICS_DELAY_MS).toISOString();
   const config = readDetectionConfig(env);
+  const cyclePromise = loadBillingCycle(
+    env.CF_ACCOUNT_ID,
+    env.CF_API_TOKEN,
+    Date.parse(measuredAt),
+  );
   const [cycle, accountName, resourceNames] = await Promise.all([
-    loadBillingCycle(
-      env.CF_ACCOUNT_ID,
-      env.CF_API_TOKEN,
-      Date.parse(measuredAt),
-    ),
+    cyclePromise,
     loadAccountName(env),
     loadResourceNames(env, [productName]),
   ]);
-  const snapshot = await collectQuotaUsage(
-    env.CF_ACCOUNT_ID,
-    env.CF_API_TOKEN,
-    cycle,
-    measuredAt,
-    resourceNames,
-    true,
-    productName,
-  );
+  const [snapshot, costs] = await Promise.all([
+    collectQuotaUsage(
+      env.CF_ACCOUNT_ID,
+      env.CF_API_TOKEN,
+      cycle,
+      measuredAt,
+      resourceNames,
+      true,
+      productName,
+    ),
+    loadBillingCosts(env, cycle),
+  ]);
   const detection = detectQuotaRisks(
     structuredClone(state),
     snapshot,
@@ -61,6 +66,7 @@ export async function loadProductDashboard(
     lastUpdated: dashboard.lastUpdated,
     source: dashboard.source,
     cycle: dashboard.cycle,
+    cost: productCost(costs, productName),
     failures: dashboard.failures,
     product,
   };

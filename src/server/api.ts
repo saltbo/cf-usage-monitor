@@ -1,6 +1,7 @@
 import { Hono, type Context } from "hono";
 import { collectInstanceUsage } from "../analytics";
 import { loadBillingCycle } from "../billing";
+import { loadBillingCosts } from "../costs";
 import { buildOverviewData } from "../dashboard-data";
 import type { MonitorState } from "../detection";
 import { loadLatestDashboard } from "../live-dashboard";
@@ -23,17 +24,32 @@ api.get("/overview", async (context) => {
   const state = (await context.env.STATE.get<MonitorState>(STATE_KEY, "json")) ?? {
     metrics: {},
   };
-  const dashboard = await loadLatestDashboard({
-    state,
-    config: readDetectionConfig(context.env),
-    accountId: context.env.CF_ACCOUNT_ID,
-    accountName: await loadAccountName(context.env),
-    apiToken: context.env.CF_API_TOKEN,
-    includeContributors: false,
-    includeTrends: false,
-  });
+  const now = Date.now();
+  const measuredAt = now - ANALYTICS_DELAY_MS;
+  const [accountName, cycle] = await Promise.all([
+    loadAccountName(context.env),
+    loadBillingCycle(
+      context.env.CF_ACCOUNT_ID,
+      context.env.CF_API_TOKEN,
+      measuredAt,
+    ),
+  ]);
+  const [latestDashboard, costs] = await Promise.all([
+    loadLatestDashboard({
+      state,
+      config: readDetectionConfig(context.env),
+      accountId: context.env.CF_ACCOUNT_ID,
+      accountName,
+      apiToken: context.env.CF_API_TOKEN,
+      cycle,
+      includeContributors: false,
+      includeTrends: false,
+      now,
+    }),
+    loadBillingCosts(context.env, cycle),
+  ]);
   context.header("Cache-Control", "no-store");
-  return context.json(buildOverviewData(dashboard));
+  return context.json(buildOverviewData(latestDashboard, costs));
 });
 
 api.get("/products/:productName", async (context) => {

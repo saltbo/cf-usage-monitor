@@ -37,6 +37,31 @@ export interface DashboardProduct {
   metrics: DashboardMetric[];
 }
 
+export interface CostOverview {
+  currency: string;
+  totalCost: number;
+  recentCost: number;
+  postedThrough: string;
+}
+
+export interface CostPoint {
+  timestamp: string;
+  cost: number;
+}
+
+export interface CostLineItem {
+  serviceName: string;
+  consumedQuantity: number;
+  consumedUnit: string;
+  pricingQuantity: number;
+  cost: number;
+}
+
+export interface ProductCostData extends CostOverview {
+  daily: CostPoint[];
+  lineItems: CostLineItem[];
+}
+
 export interface DashboardData {
   schemaVersion: 2;
   generatedAt: string;
@@ -72,6 +97,7 @@ export interface OverviewProduct {
   label: string;
   description: string;
   risk: RiskLevel;
+  cost: CostOverview;
   metrics: OverviewMetric[];
 }
 
@@ -83,6 +109,7 @@ export interface OverviewData {
   lastUpdated: string;
   source: string;
   cycle: UsageSnapshot["cycle"];
+  cost: CostOverview;
   summary: DashboardData["summary"];
   failures: UsageSnapshot["failures"];
   products: OverviewProduct[];
@@ -93,6 +120,7 @@ export interface ProductDashboardData {
   lastUpdated: string;
   source: string;
   cycle: UsageSnapshot["cycle"];
+  cost: ProductCostData;
   failures: UsageSnapshot["failures"];
   product: DashboardProduct;
 }

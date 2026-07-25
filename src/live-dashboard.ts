@@ -19,6 +19,7 @@ interface LatestDashboardInput {
   accountId: string;
   accountName: string;
   apiToken: string;
+  cycle?: UsageSnapshot["cycle"];
   resourceNames?: ResourceNames;
   includeContributors?: boolean;
   includeTrends?: boolean;
@@ -33,6 +34,7 @@ export async function loadLatestDashboard({
   accountId,
   accountName,
   apiToken,
+  cycle: providedCycle,
   resourceNames = {},
   includeContributors = true,
   includeTrends = true,
@@ -41,11 +43,9 @@ export async function loadLatestDashboard({
   loadCycle = loadBillingCycle,
 }: LatestDashboardInput): Promise<DashboardData> {
   const measuredAt = new Date(now - 5 * 60 * 1_000).toISOString();
-  const cycle = await loadCycle(
-    accountId,
-    apiToken,
-    Date.parse(measuredAt),
-  );
+  const cycle =
+    providedCycle ??
+    (await loadCycle(accountId, apiToken, Date.parse(measuredAt)));
   const snapshot: UsageSnapshot = await collect(
     accountId,
     apiToken,

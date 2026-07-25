@@ -1,7 +1,11 @@
 import { FailurePanel } from "../components/FailurePanel";
 import { ProductCard } from "../components/ProductCard";
 import { useDashboard } from "../data/dashboard-context";
-import { formatDate } from "../lib/format";
+import {
+  formatBillingThrough,
+  formatCurrency,
+  formatDate,
+} from "../lib/format";
 
 export function OverviewPage() {
   const { data, error, loading, refresh, refreshing } = useDashboard();
@@ -56,6 +60,15 @@ export function OverviewPage() {
       </div>
       <div aria-label="风险摘要" className="summary-grid">
         <SummaryCard
+          detail={`入账至 ${formatBillingThrough(data.cost.postedThrough)}`}
+          label="本期用量成本"
+          value={formatCurrency(data.cost.totalCost, data.cost.currency)}
+        />
+        <SummaryCard
+          label="最近一日成本"
+          value={formatCurrency(data.cost.recentCost, data.cost.currency)}
+        />
+        <SummaryCard
           label="高风险产品"
           tone="critical"
           value={data.summary.critical}
@@ -65,8 +78,6 @@ export function OverviewPage() {
           tone="warning"
           value={data.summary.warning}
         />
-        <SummaryCard label="监控产品" value={data.summary.products} />
-        <SummaryCard label="预测窗口" value="最近 1 小时" />
       </div>
       <div className="section-heading">
         <div>
@@ -88,10 +99,12 @@ export function OverviewPage() {
 
 function SummaryCard({
   label,
+  detail,
   tone = "normal",
   value,
 }: {
   label: string;
+  detail?: string;
   tone?: "normal" | "warning" | "critical";
   value: number | string;
 }) {
@@ -99,6 +112,7 @@ function SummaryCard({
     <article className={`summary-card tone-${tone}`}>
       <span>{label}</span>
       <strong>{value}</strong>
+      {detail ? <small>{detail}</small> : null}
     </article>
   );
 }

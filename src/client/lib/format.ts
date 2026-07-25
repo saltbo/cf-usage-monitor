@@ -12,12 +12,26 @@ export function formatPercent(value: number): string {
   }).format(value);
 }
 
+export function formatCurrency(value: number, currency: string): string {
+  const fractionDigits = value !== 0 && Math.abs(value) < 1 ? 4 : 2;
+  return new Intl.NumberFormat("zh-CN", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: fractionDigits,
+  }).format(value);
+}
+
 export function formatDate(value: string): string {
   return new Intl.DateTimeFormat("zh-CN", {
     month: "short",
     day: "numeric",
     timeZone: "UTC",
   }).format(new Date(value));
+}
+
+export function formatBillingThrough(value: string): string {
+  return formatDate(new Date(Date.parse(value) - 1).toISOString());
 }
 
 export function formatTimestamp(

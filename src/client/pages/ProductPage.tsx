@@ -2,9 +2,9 @@ import { useState } from "react";
 import { Link, Navigate, useParams, useSearchParams } from "react-router";
 import { PRODUCTS, PRODUCT_NAMES, type ProductName } from "../../metrics";
 import type { DashboardMetric } from "../../shared/dashboard";
-import { ContributorTable } from "../components/ContributorTable";
 import { FailurePanel } from "../components/FailurePanel";
 import { InstancePanel } from "../components/InstancePanel";
+import { ProductDataTabs } from "../components/ProductDataTabs";
 import { QuotaMeter } from "../components/QuotaMeter";
 import { TrendChart } from "../components/TrendChart";
 import { useDashboard } from "../data/dashboard-context";
@@ -23,8 +23,7 @@ export function ProductPage() {
   if (!validProductName) {
     return <Navigate replace to="/" />;
   }
-  const product = live.data?.product;
-  if (!product) {
+  if (!live.data) {
     const definition = PRODUCTS[validProductName];
     return (
       <div className={live.error ? "issues-panel" : "loading-state"}>
@@ -32,6 +31,8 @@ export function ProductPage() {
       </div>
     );
   }
+  const dashboard = live.data;
+  const product = dashboard.product;
 
   const requestedMetric = searchParams.get("metric");
   const metric =
@@ -176,22 +177,13 @@ export function ProductPage() {
             />
           </section>
 
-          <section
-            aria-labelledby="contributors-title"
-            className="contributors-section"
-          >
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">实例归因</p>
-                <h2 id="contributors-title">谁消耗得最多？</h2>
-              </div>
-              <p>按当前计费周期用量排序</p>
-            </div>
-            <ContributorTable
-              metric={metric}
-              productName={product.name as ProductName}
-            />
-          </section>
+          <ProductDataTabs
+            cost={dashboard.cost}
+            cycleEnd={dashboard.cycle.end}
+            cycleStart={dashboard.cycle.start}
+            metric={metric}
+            productName={product.name as ProductName}
+          />
         </>
       )}
       <FailurePanel failures={live.data?.failures ?? []} />

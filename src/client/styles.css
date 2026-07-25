@@ -39,6 +39,7 @@ h1,h2,p{margin-top:0}.page-heading h1{margin-bottom:7px;font-size:clamp(25px,4vw
   overflow:hidden;border:1px solid var(--line);border-radius:var(--radius);background:var(--line)}
 .summary-grid article{padding:16px 18px;background:var(--surface)}.summary-grid span{display:block;color:var(--muted);font-size:11px}
 .summary-grid strong{display:block;margin-top:8px;font-size:24px;font-variant-numeric:tabular-nums}
+.summary-grid small{display:block;margin-top:5px;color:var(--subtle);font-size:9px;font-style:normal}
 .section-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin:0 0 10px}
 .section-heading h2{margin:0;font-size:19px}.section-heading>p{margin:0;color:var(--muted);font-size:12px}
 .product-list{display:grid;gap:10px}.product-card{width:100%;padding:0;display:grid;
@@ -48,6 +49,8 @@ h1,h2,p{margin-top:0}.page-heading h1{margin-bottom:7px;font-size:clamp(25px,4vw
 .product-card:hover{border-color:var(--line-strong);background:var(--surface-2)}
 .product-identity{padding:17px 18px;border-right:1px solid var(--line)}
 .product-identity strong{display:block;margin-bottom:5px;font-size:16px}.product-identity small{color:var(--muted);font-size:12px;line-height:1.45}
+.product-cost{display:block;margin-top:13px}.product-cost small{display:block;color:var(--subtle);font-size:9px}
+.product-cost b{display:block;margin-top:3px;font:750 14px ui-monospace,monospace}
 .product-metrics{display:grid;align-content:center;gap:11px;padding:14px 18px}
 .quota-row{display:grid;grid-template-columns:minmax(130px,.9fr) minmax(150px,1.4fr) auto;align-items:center;gap:14px}
 .quota-label{font-size:13px;font-weight:650}.quota-label small{margin-left:7px;color:var(--muted);font-size:10px;font-weight:700}
@@ -111,7 +114,31 @@ h1,h2,p{margin-top:0}.page-heading h1{margin-bottom:7px;font-size:clamp(25px,4vw
 .quota-chart{position:relative;min-height:340px}.quota-chart svg{width:100%;height:auto;display:block;cursor:crosshair}
 .chart-timezone{position:absolute;z-index:1;top:4px;right:24px;color:var(--muted);font-size:10px;pointer-events:none}
 .quota-chart svg:focus-visible,.instance-chart svg:focus-visible{outline:2px solid var(--teal);outline-offset:3px}
-.chart-hover-line{opacity:.78}.chart-now-line{vector-effect:non-scaling-stroke}.contributors-section{margin-top:24px}
+.chart-hover-line{opacity:.78}.chart-now-line{vector-effect:non-scaling-stroke}
+.product-data-section{margin-top:24px}.product-data-tabs{display:flex;gap:3px;width:max-content;padding:3px;
+  background:var(--canvas);border:1px solid var(--line);border-bottom:0;border-radius:7px 7px 0 0}
+.product-data-tabs button{min-width:108px;min-height:38px;padding:0 14px;color:var(--muted);
+  background:transparent;border:0;border-radius:5px;cursor:pointer;font-size:12px;font-weight:700}
+.product-data-tabs button[aria-selected=true]{color:var(--text);background:var(--surface-2)}
+.product-data-tabs button:focus-visible{outline:2px solid var(--teal);outline-offset:1px}
+.product-data-content{background:var(--surface);border:1px solid var(--line);border-radius:0 var(--radius) var(--radius) var(--radius);
+  box-shadow:var(--shadow)}.contributors-section,.cost-panel{margin:0;padding:20px}
+.cost-heading{margin-bottom:14px}.cost-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;
+  overflow:hidden;background:var(--line);border:1px solid var(--line);border-radius:7px}
+.cost-summary>span{padding:13px 15px;background:var(--surface-2)}.cost-summary small{display:block;color:var(--muted);font-size:10px}
+.cost-summary strong{display:block;margin-top:6px;font:750 18px ui-monospace,monospace}
+.cost-summary em{display:block;margin-top:5px;color:var(--subtle);font-size:9px;font-style:normal}
+.cost-chart{position:relative;min-height:260px;margin-top:18px}.cost-chart-scroll{overflow:visible}
+.cost-chart svg{width:100%;height:auto;display:block;cursor:crosshair}
+.cost-chart svg:focus-visible{outline:2px solid var(--teal);outline-offset:3px}.cost-chart-timezone{position:absolute;z-index:1;
+  top:0;right:18px;color:var(--muted);font-size:10px;pointer-events:none}.cost-grid-line{stroke:var(--line);stroke-width:1}
+.cost-axis-label{fill:var(--muted);font-size:10px}.cost-bar{fill:var(--blue)}.cost-hover-line{stroke:var(--muted);
+  stroke-width:1;stroke-dasharray:2 4;vector-effect:non-scaling-stroke}.cost-tooltip-bg{fill:var(--surface-2);stroke:var(--line-strong)}
+.cost-tooltip-date{fill:var(--muted);font-size:10px}.cost-tooltip-value{fill:var(--text);font-size:13px;font-weight:750}
+.cost-empty{min-height:150px;display:grid;place-items:center;margin-top:18px;color:var(--muted);
+  border:1px dashed var(--line-strong);border-radius:7px;font-size:11px}.cost-table-wrap{overflow-x:auto;margin-top:14px;
+  border:1px solid var(--line);border-radius:7px}.cost-table-wrap table{min-width:700px}
+.cost-table-wrap td:first-child{max-width:440px}.cost-table-wrap td strong{font:750 12px ui-monospace,monospace}
 .instance-panel{padding:20px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
 .instance-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:20px}
 .instance-heading-main{min-width:0}.instance-heading h2{margin:0 0 5px;font-size:20px}
@@ -156,5 +183,8 @@ tbody tr:last-child td{border-bottom:0}.instance-link{max-width:100%;padding:0;d
   .detail-quota-foot{grid-template-columns:auto auto;justify-content:space-between}.detail-quota-foot strong{grid-column:1/-1;grid-row:2;text-align:left}
   .instance-panel{padding:14px}.instance-heading{align-items:flex-start}.instance-summary{grid-template-columns:1fr}
   .instance-benchmark-copy{display:grid;gap:5px}
+  .contributors-section,.cost-panel{padding:14px}.product-data-tabs{width:100%}.product-data-tabs button{flex:1}
+  .cost-summary{grid-template-columns:1fr}.cost-chart{min-height:0}.cost-chart-scroll{overflow-x:auto}
+  .cost-chart svg{min-width:680px}
   .trend-heading{align-items:flex-start}.quota-chart{min-height:300px}.brand small{display:none}footer{display:grid}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}

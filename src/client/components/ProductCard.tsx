@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import type { OverviewProduct } from "../../shared/dashboard";
 import { alertStatusLabel } from "../lib/risk";
-import { formatPercent } from "../lib/format";
+import { formatCurrency, formatPercent } from "../lib/format";
 import { QuotaMeter } from "./QuotaMeter";
 import { RiskBadge } from "./RiskBadge";
 
@@ -11,6 +11,12 @@ export function ProductCard({ product }: { product: OverviewProduct }) {
       <span className="product-identity">
         <strong>{product.label}</strong>
         <small>{product.description}</small>
+        <span className="product-cost">
+          <small>本期实际费用</small>
+          <b>
+            {formatCurrency(product.cost.totalCost, product.cost.currency)}
+          </b>
+        </span>
       </span>
       <span className="product-metrics">
         {product.metrics.map((metric) => {

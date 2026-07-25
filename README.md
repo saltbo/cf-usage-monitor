@@ -28,10 +28,10 @@ Vite 开发服务器使用 Cloudflare 官方插件，因此本地开发、生产
 仪表盘使用 HTTP Basic Auth，用户名固定为 `monitor`，密码来自 `DASHBOARD_PASSWORD`。
 
 - `/`：账户产品额度总览。
-- `/usage/:product`：产品与计费指标详情。
+- `/usage/:product`：产品与计费指标详情，实例归因与成本明细通过 Tabs 切换。
 - `/usage/:product/instances/:instance`：资源实例趋势。
-- `/api/overview`：列表页专用的实时轻量摘要，不返回趋势、实例贡献者或完整告警状态。
-- `/api/products/:product`：只查询指定产品的实时额度和趋势。
+- `/api/overview`：列表页专用的实时轻量摘要，只返回产品成本总额，不返回每日成本、计费项、趋势、实例贡献者或完整告警状态。
+- `/api/products/:product`：只查询指定产品的实时额度、趋势、每日实际成本和计费项。
 - `/api/instance-usage`：指定实例的小时和每日趋势。
 - `/health`：公开存活检查。
 
@@ -40,6 +40,7 @@ React Router 负责浏览器页面路由，Hono 负责 `/api/*` 和 `/health`。
 ## 数据与告警
 
 - Billing API 读取真实订阅计费周期。
+- Billing Cost API 读取 usage-based 实际费用，并严格裁剪到当前计费周期；不包含固定套餐、税费或未出账费用。
 - GraphQL Analytics 查询当前周期、最近一小时、小时和每日趋势。
 - 资源维度用于定位 Worker、D1、KV、R2、Queue 等贡献者。
 - 采集失败的指标保留最近可信状态，不会以零用量触发错误恢复。
@@ -112,6 +113,8 @@ npm run check
 资源范围应限制为被监控账户。生产 Secret 使用 `wrangler secret put` 管理，不写入配置或源码。
 
 账户名称以及 D1、KV、Durable Objects、Queues 和 Containers 的资源名称会从 Cloudflare API 实时获取，并在 `STATE` KV 中缓存 15 分钟。Workers、R2 和 Workers AI 的 Analytics 维度已经直接包含可展示名称，不需要额外资源映射。
+
+Billing Cost API 的原始计费记录同样在 `STATE` KV 中缓存 15 分钟。账户总览包含 Cloudflare 返回的全部 usage-based 费用；产品卡片和详情按 Workers、D1、Workers KV、R2、Durable Objects、Queues、Workers AI、Containers 的服务族归类。
 
 ## 部署
 

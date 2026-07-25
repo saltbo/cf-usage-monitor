@@ -8,12 +8,32 @@ import {
   type DetectionConfig,
 } from "../src/detection";
 import { METRIC_NAMES, type UsageSnapshot } from "../src/metrics";
+import type { BillingCosts } from "../src/costs";
 
 const config: DetectionConfig = {
   alertAfterSamples: 2,
   recoverySamples: 3,
   reminderMinutes: 60,
   policies: { "r2.storage_gb_month": "track_only" },
+};
+
+const costs: BillingCosts = {
+  overview: {
+    currency: "USD",
+    totalCost: 12,
+    recentCost: 2,
+    postedThrough: "2026-07-15T00:00:00.000Z",
+  },
+  products: {
+    d1: {
+      currency: "USD",
+      totalCost: 10,
+      recentCost: 1.5,
+      postedThrough: "2026-07-15T00:00:00.000Z",
+      daily: [],
+      lineItems: [],
+    },
+  },
 };
 
 describe("dashboard data", () => {
@@ -56,8 +76,15 @@ describe("dashboard data", () => {
         ?.alertStatus,
     ).toBe("track_only");
 
-    const overview = buildOverviewData(dashboard);
+    const overview = buildOverviewData(dashboard, costs);
     const overviewMetric = overview.products[0].metrics[0];
+    expect(overview.cost).toEqual(costs.overview);
+    expect(overview.products[0].cost).toEqual({
+      currency: "USD",
+      totalCost: 10,
+      recentCost: 1.5,
+      postedThrough: "2026-07-15T00:00:00.000Z",
+    });
     expect(overviewMetric).toMatchObject({
       metric: "d1.rows_written",
       used: 30_000_000,

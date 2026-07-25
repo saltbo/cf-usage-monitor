@@ -6,6 +6,10 @@ import {
   type ProductName,
   type UsageSnapshot,
 } from "./metrics";
+import {
+  productCost,
+  type BillingCosts,
+} from "./costs";
 import type {
   AlertPolicy,
   DetectionConfig,
@@ -83,7 +87,10 @@ export function buildDashboardData(
   };
 }
 
-export function buildOverviewData(dashboard: DashboardData): OverviewData {
+export function buildOverviewData(
+  dashboard: DashboardData,
+  costs: BillingCosts,
+): OverviewData {
   return {
     schemaVersion: dashboard.schemaVersion,
     generatedAt: dashboard.generatedAt,
@@ -92,25 +99,35 @@ export function buildOverviewData(dashboard: DashboardData): OverviewData {
     lastUpdated: dashboard.lastUpdated,
     source: dashboard.source,
     cycle: dashboard.cycle,
+    cost: costs.overview,
     summary: dashboard.summary,
     failures: dashboard.failures,
-    products: dashboard.products.map((product) => ({
-      name: product.name,
-      label: product.label,
-      description: product.description,
-      risk: product.risk,
-      metrics: product.metrics.map((metric) => ({
-        metric: metric.metric,
-        label: metric.label,
-        unit: metric.unit,
-        risk: metric.risk,
-        used: metric.used,
-        quota: metric.quota,
-        usedRatio: metric.usedRatio,
-        forecastProjectedRatio: metric.forecastProjectedRatio,
-        alertStatus: metric.alertStatus,
-      })),
-    })),
+    products: dashboard.products.map((product) => {
+      const cost = productCost(costs, product.name);
+      return {
+        name: product.name,
+        label: product.label,
+        description: product.description,
+        risk: product.risk,
+        cost: {
+          currency: cost.currency,
+          totalCost: cost.totalCost,
+          recentCost: cost.recentCost,
+          postedThrough: cost.postedThrough,
+        },
+        metrics: product.metrics.map((metric) => ({
+          metric: metric.metric,
+          label: metric.label,
+          unit: metric.unit,
+          risk: metric.risk,
+          used: metric.used,
+          quota: metric.quota,
+          usedRatio: metric.usedRatio,
+          forecastProjectedRatio: metric.forecastProjectedRatio,
+          alertStatus: metric.alertStatus,
+        })),
+      };
+    }),
   };
 }
 
