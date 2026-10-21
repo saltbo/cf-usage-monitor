@@ -62,8 +62,8 @@ React Router 负责浏览器页面路由，Hono 负责 `/api/*` 和 `/health`。
 需要 Node.js 24.15 或更新版本。
 
 ```sh
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 未提交的 `.dev.vars.local` 需要提供：
@@ -82,7 +82,7 @@ DASHBOARD_PASSWORD
 `critical`，普通风险使用 `timeSensitive`，监控错误使用 `active`，恢复通知使用
 `passive`。
 
-`npm run dev` 会显式选择 Cloudflare `local` 环境。`npm run preview` 会先生成带本地预览变量的构建；常规 `npm run build` 不加载或复制 `.dev.vars.local`，生产 Secret 仍由 Cloudflare 管理。
+`pnpm run dev` 会显式选择 Cloudflare `local` 环境。`pnpm run preview` 会先生成带本地预览变量的构建；常规 `pnpm run build` 不加载或复制 `.dev.vars.local`，生产 Secret 仍由 Cloudflare 管理。
 
 本地触发 Cron：
 
@@ -93,18 +93,18 @@ curl "http://localhost:5173/cdn-cgi/handler/scheduled?cron=5,15,25,35,45,55+*+*+
 ## 本地质量检查
 
 ```sh
-npm run typecheck
-npm test
-npm run build
+pnpm run typecheck
+pnpm test
+pnpm run build
 ```
 
 或运行完整的纯本地检查：
 
 ```sh
-npm run check
+pnpm run check
 ```
 
-`npm run check` 只生成绑定类型、执行类型检查和测试并构建产物，不部署。
+`pnpm run check` 只生成绑定类型、执行类型检查和测试并构建产物，不部署。
 
 ## Cloudflare 权限
 
@@ -128,7 +128,7 @@ Billing Cost API 的原始计费记录同样在 `STATE` KV 中缓存 15 分钟�
 部署是显式操作，不包含在默认检查中：
 
 ```sh
-npm run deploy
+pnpm run deploy
 ```
 
 定时任务在每小时的 `05/15/25/35/45/55` 分运行，查询结束于 5 分钟前的数据，为 Analytics 聚合预留时间。

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "license": "Apache-2.0",
-  "packageManager": "npm@12.0.1",
+  "packageManager": "pnpm@10.30.2",
   "engines": {
     "node": ">=24.15.0"
   },
@@ -17,9 +17,9 @@
     "test": "vitest run --config vitest.worker.config.ts && vitest run --config vitest.web.config.ts",
     "test:worker": "vitest run --config vitest.worker.config.ts",
     "test:web": "vitest run --config vitest.web.config.ts",
-    "deploy:dry": "npm run build && wrangler deploy --dry-run",
-    "check": "npm run types && npm run typecheck && npm test && npm run build",
-    "deploy": "npm run build && wrangler deploy"
+    "deploy:dry": "pnpm run build && wrangler deploy --dry-run",
+    "check": "pnpm run types && pnpm run typecheck && pnpm test && pnpm run build",
+    "deploy": "pnpm run build && wrangler deploy"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.47.0",
@@ -43,5 +43,12 @@
     "react-dom": "^19.2.7",
     "react-i18next": "^17.0.10",
     "react-router": "^8.3.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "fsevents",
+      "workerd"
+    ]
   }
 }
