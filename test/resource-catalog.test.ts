@@ -134,6 +134,42 @@ describe("Cloudflare resource catalog", () => {
     ]);
   });
 
+  it("requests a page size every catalog endpoint accepts", async () => {
+    const state = fakeState();
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      const perPage = Number(new URL(url).searchParams.get("per_page"));
+      if (perPage > 500) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            errors: [
+              {
+                message:
+                  '{"error":"VALIDATE_INPUT","details":' +
+                  '{"per_page":"per_page must be an integer between 1 and 500"}}',
+              },
+            ],
+          }),
+          { status: 400 },
+        );
+      }
+      return apiResponse([]);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      loadResourceNames(
+        {
+          STATE: state.namespace,
+          CF_ACCOUNT_ID: "account-id",
+          CF_API_TOKEN: "token",
+        },
+        ["containers"],
+      ),
+    ).resolves.toEqual({ containers: {} });
+  });
+
   it("surfaces Cloudflare API failures instead of hiding them", async () => {
     vi.stubGlobal(
       "fetch",

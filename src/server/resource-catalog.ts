@@ -3,7 +3,11 @@ import type { ProductName } from "../metrics";
 const API_BASE_URL = "https://api.cloudflare.com/client/v4";
 const CACHE_TTL_SECONDS = 15 * 60;
 const CACHE_PREFIX = "resource-catalog-v1";
-const PAGE_SIZE = 1_000;
+// The Cloudflare account API rejects per_page values above 500 with
+// VALIDATE_INPUT, and containers/applications enforces that limit today.
+// Keep the page size at the lowest documented maximum that every listed
+// endpoint accepts so a single oversized value cannot break the catalog.
+const PAGE_SIZE = 500;
 
 export type ResourceNames = Partial<
   Record<ProductName, Record<string, string>>

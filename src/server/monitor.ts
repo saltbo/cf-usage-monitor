@@ -12,16 +12,19 @@ import {
   type QuotaRecoveredEvent,
   type QuotaRiskEvent,
 } from "../notifications";
-import { PRODUCT_NAMES } from "../metrics";
+import { PRODUCT_NAMES, type ProductName } from "../metrics";
 import { readDetectionConfig } from "./config";
 import {
   loadAccountName,
   loadResourceNames,
+  type ResourceNames,
 } from "./resource-catalog";
 
 const STATE_KEY = "monitor-state-v2";
 const SAMPLE_INTERVAL_MS = SAMPLE_INTERVAL_MINUTES * 60 * 1_000;
 const ANALYTICS_DELAY_MS = 5 * 60 * 1_000;
+
+type MonitorErrorEntry = MonitorErrorEvent["errors"][number];
 
 export async function runMonitor(
   scheduledTime: number,
@@ -46,15 +49,15 @@ export async function runMonitor(
       env.CF_API_TOKEN,
       measuredAtMs,
     ),
-    loadAccountName(env),
-    loadResourceNames(env, PRODUCT_NAMES),
+    loadAccountNameOrFallback(env),
+    loadResourceNamesOrFallback(env, PRODUCT_NAMES),
   ]);
   const snapshot = await collectQuotaUsage(
     env.CF_ACCOUNT_ID,
     env.CF_API_TOKEN,
     cycle,
     measuredAt,
-    resourceNames,
+    resourceNames.names,
   );
   const detection = detectQuotaRisks(
     previous,
@@ -87,18 +90,19 @@ export async function runMonitor(
     };
     events.push(event);
   }
-  if (snapshot.failures.length > 0) {
+  const failures = [...snapshot.failures, ...resourceNames.failures];
+  if (failures.length > 0) {
     const event: MonitorErrorEvent = {
       ...base,
       type: "cloudflare.monitor_error",
-      errors: snapshot.failures,
+      errors: failures,
     };
     events.push(event);
   }
 
   detection.state.lastRun = {
     detectedAt: base.detectedAt,
-    failures: snapshot.failures,
+    failures,
     alerts: detection.alerts,
     recoveries: detection.recoveries,
   };
@@ -106,10 +110,44 @@ export async function runMonitor(
   await env.STATE.put(STATE_KEY, JSON.stringify(detection.state));
   log("info", "monitor_completed", {
     measuredAt,
-    failedCollectors: snapshot.failures.length,
+    failedCollectors: failures.length,
     alerts: detection.alerts.length,
     recoveries: detection.recoveries.length,
   });
+}
+
+/**
+ * Resource display names are cosmetic. A catalog outage must never silence
+ * quota alerting, so failures degrade to raw identifiers and surface as a
+ * monitor error instead of aborting the whole run.
+ */
+async function loadResourceNamesOrFallback(
+  env: Env,
+  products: readonly ProductName[],
+): Promise<{ names: ResourceNames; failures: MonitorErrorEntry[] }> {
+  try {
+    return {
+      names: await loadResourceNames(env, products),
+      failures: [],
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    log("error", "resource_catalog_unavailable", { message });
+    return {
+      names: {},
+      failures: [{ collector: "resource_catalog", message }],
+    };
+  }
+}
+
+async function loadAccountNameOrFallback(env: Env): Promise<string> {
+  try {
+    return await loadAccountName(env);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    log("error", "account_name_unavailable", { message });
+    return env.CF_ACCOUNT_ID;
+  }
 }
 
 function log(
