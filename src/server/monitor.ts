@@ -26,10 +26,19 @@ const ANALYTICS_DELAY_MS = 5 * 60 * 1_000;
 
 type MonitorErrorEntry = MonitorErrorEvent["errors"][number];
 
+export interface MonitorOutcome {
+  /**
+   * False when the run was skipped because the window was already
+   * processed. A skipped run must not refresh the watchdog heartbeat,
+   * otherwise a monitor that stopped collecting would look healthy.
+   */
+  collected: boolean;
+}
+
 export async function runMonitor(
   scheduledTime: number,
   env: Env,
-): Promise<void> {
+): Promise<MonitorOutcome> {
   const measuredAtMs =
     Math.floor(
       (scheduledTime - ANALYTICS_DELAY_MS) / SAMPLE_INTERVAL_MS,
@@ -40,7 +49,7 @@ export async function runMonitor(
   };
   if (previous.lastWindowEnd === measuredAt) {
     log("info", "duplicate_window_skipped", { measuredAt });
-    return;
+    return { collected: false };
   }
 
   const [cycle, accountName, resourceNames] = await Promise.all([
@@ -114,6 +123,7 @@ export async function runMonitor(
     alerts: detection.alerts.length,
     recoveries: detection.recoveries.length,
   });
+  return { collected: true };
 }
 
 /**

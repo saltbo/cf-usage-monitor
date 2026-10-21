@@ -46,6 +46,7 @@ React Router 负责浏览器页面路由，Hono 负责 `/api/*` 和 `/health`。
 - 资源维度用于定位 Worker、D1、KV、R2、Queue 等贡献者。
 - 采集失败的指标保留最近可信状态，不会以零用量触发错误恢复。
 - 通知成功后才提交新的告警状态，投递失败会在后续周期重试。
+- 资源目录（显示名称）接口故障时降级为原始 ID，额度告警继续发送，故障以监控错误上报。
 
 监控指标包括 Workers、D1、Workers KV、R2 操作与存储、Durable Objects、Queues、Workers AI 和 Containers。额度定义位于 `src/metrics.ts`。
 
@@ -56,6 +57,24 @@ React Router 负责浏览器页面路由，Hono 负责 `/api/*` 和 `/health`。
 - `exceeded`：当前周期已超过额度。
 
 `USAGE_ALERT_POLICIES` 可以将指定指标设为 `track_only`，继续展示但不发送额度告警。
+
+### 看门狗
+
+监控自身也会被监控。看门狗与额度采集流程完全解耦：每次定时任务成功后写入心跳，
+看门狗根据心跳判断监控是否还活着。
+
+- 监控抛异常，或连续跳过窗口而没有真正采集时，都视为一次失败。
+- 超过 `WATCHDOG_STALE_AFTER_MINUTES`（默认 30 分钟）没有成功采集，发送一条
+  `cloudflare.monitor_stalled` 告警，说明额度告警当前已停止投递。
+- 同一段静默持续期间每 `WATCHDOG_REPEAT_MINUTES`（默认 180 分钟）重复提醒一次。
+- 监控恢复后自动停止提醒。
+
+看门狗状态保存在 `STATE` KV 的 `monitor-watchdog-v1` 键。
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `WATCHDOG_STALE_AFTER_MINUTES` | `30` | 静默多久后判定监控失联 |
+| `WATCHDOG_REPEAT_MINUTES` | `180` | 同一段静默期间的重复提醒间隔 |
 
 ## 本地开发
 

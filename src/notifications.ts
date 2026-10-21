@@ -1,5 +1,6 @@
 import type { QuotaAlert, QuotaRecovery } from "./detection";
 import { METRICS, PRODUCTS } from "./metrics";
+import type { WatchdogEvent } from "./server/watchdog";
 
 interface EventBase {
   schemaVersion: 2;
@@ -25,7 +26,8 @@ export interface MonitorErrorEvent extends EventBase {
 export type AlertEvent =
   | QuotaRiskEvent
   | QuotaRecoveredEvent
-  | MonitorErrorEvent;
+  | MonitorErrorEvent
+  | WatchdogEvent;
 
 export interface EmailContent {
   subject: string;
@@ -119,6 +121,9 @@ function barkLevel(event: AlertEvent): BarkContent["level"] {
   if (event.type === "cloudflare.quota_recovered") {
     return "passive";
   }
+  if (event.type === "cloudflare.monitor_stalled") {
+    return "critical";
+  }
   if (event.type === "cloudflare.monitor_error") {
     return "active";
   }
@@ -143,6 +148,20 @@ function buildNotificationContent(event: AlertEvent): {
     return {
       title: `Cloudflare quota risk recovered: ${event.recoveries.length} metric(s)`,
       details: event.recoveries.map(recoveryLine),
+    };
+  }
+  if (event.type === "cloudflare.monitor_stalled") {
+    return {
+      title: `Cloudflare monitor stalled: no successful run for ${event.stalledForMinutes} minute(s)`,
+      details: [
+        `The monitor has not completed a successful run for ${event.stalledForMinutes} minute(s); ` +
+          `the threshold is ${event.staleAfterMinutes} minute(s). ` +
+          "Quota alerts are not being delivered while the monitor is stalled.",
+        event.lastSuccessAt
+          ? `Last successful run: ${event.lastSuccessAt}`
+          : "No successful run has ever been recorded.",
+        event.lastError ? `Last error: ${event.lastError}` : null,
+      ].filter((detail): detail is string => detail !== null),
     };
   }
   return {
@@ -189,7 +208,12 @@ export async function sendBark(
   barkUrl: string,
   event: AlertEvent,
 ): Promise<void> {
-  const url = new URL(barkUrl);
+  let url: URL;
+  try {
+    url = new URL(barkUrl);
+  } catch {
+    throw new Error("ALERT_WEBHOOK_URL must be a valid absolute URL");
+  }
   if (url.protocol !== "https:" && url.protocol !== "http:") {
     throw new Error("ALERT_WEBHOOK_URL must use HTTP or HTTPS");
   }

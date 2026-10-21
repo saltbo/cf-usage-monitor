@@ -37,6 +37,8 @@
     "ALERT_AFTER_SAMPLES": "2",
     "RECOVERY_SAMPLES": "3",
     "REMINDER_MINUTES": "60",
+    "WATCHDOG_STALE_AFTER_MINUTES": "30",
+    "WATCHDOG_REPEAT_MINUTES": "180",
     "USAGE_ALERT_POLICIES": {
       "r2.storage_gb_month": "track_only"
     },
